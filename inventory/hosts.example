@@ -1,0 +1,30 @@
+[webservers]
+# Example web servers
+# web1 ansible_host=192.168.1.10
+# web2 ansible_host=192.168.1.11
+
+[appservers]
+# Example application servers
+# app1 ansible_host=192.168.1.20
+# app2 ansible_host=192.168.1.21
+
+[dbservers]
+# Example database servers
+# db1 ansible_host=192.168.1.30
+# db2 ansible_host=192.168.1.31
+
+[monitoring]
+# Example monitoring servers
+# monitor1 ansible_host=192.168.1.40
+
+[all:vars]
+ansible_user=ubuntu
+ansible_ssh_private_key_file=~/.ssh/id_rsa
+ansible_python_interpreter=/usr/bin/python3
+
+[webservers:vars]
+http_port=80
+https_port=443
+
+[dbservers:vars]
+db_port=5432 

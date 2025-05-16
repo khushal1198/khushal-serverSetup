@@ -1,0 +1,55 @@
+---
+- name: Basic Server Setup
+  hosts: all
+  become: yes
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_os_family == "Debian"
+
+    - name: Install common packages
+      package:
+        name: "{{ packages }}"
+        state: present
+      vars:
+        packages:
+          - vim
+          - htop
+          - curl
+          - wget
+          - git
+          - ufw
+          - fail2ban
+
+    - name: Configure timezone
+      timezone:
+        name: UTC
+
+    - name: Set up basic firewall
+      ufw:
+        rule: allow
+        port: ssh
+        proto: tcp
+
+    - name: Enable and start fail2ban
+      service:
+        name: fail2ban
+        state: started
+        enabled: yes
+
+    - name: Create admin user
+      user:
+        name: "{{ admin_user }}"
+        groups: sudo
+        shell: /bin/bash
+        state: present
+      vars:
+        admin_user: "{{ lookup('env', 'ADMIN_USER') | default('admin') }}"
+
+    - name: Set up authorized keys for admin user
+      authorized_key:
+        user: "{{ admin_user }}"
+        state: present
+        key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}" 
