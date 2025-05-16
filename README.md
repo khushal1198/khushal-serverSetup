@@ -26,6 +26,13 @@ This repository contains Ansible playbooks and roles for setting up and managing
 - Vault UI is accessible at `http://<server-ip>:30201`.
 - **Important:** Store the root token and unseal key securely. Do not commit them to version control.
 
+## Monitoring Stack
+
+### Access
+- Prometheus: http://<server-ip>:30300
+- Grafana: http://<server-ip>:30301 (Username: admin, Password: admin)
+- AlertManager: http://<server-ip>:30302
+
 ## Usage
 - Run the Ansible playbooks to set up or clean up Jenkins and Vault.
 - Ensure you have Ansible installed and configured correctly.
