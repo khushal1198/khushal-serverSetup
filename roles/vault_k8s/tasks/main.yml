@@ -71,10 +71,36 @@
     KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
   register: root_token
 
+- name: Generate Vault credentials file
+  become: yes
+  copy:
+    content: |
+      # Vault Credentials
+      # DO NOT COMMIT THIS FILE TO VERSION CONTROL
+
+      # Vault Server
+      VAULT_ADDR=http://10.0.0.100:30200
+
+      # Root Token
+      VAULT_TOKEN={{ root_token.stdout }}
+
+      # Unseal Key
+      VAULT_UNSEAL_KEY={{ unseal_key.stdout }}
+
+      # UI Access
+      VAULT_UI_URL=http://10.0.0.100:30201
+    dest: /home/{{ ansible_user }}/.vault-credentials
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: 0600
+  environment:
+    KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
+
 - name: Display Vault Access Information
   debug:
     msg: |
       Vault is now initialized and unsealed!
       Root Token: {{ root_token.stdout }}
       Unseal Key: {{ unseal_key.stdout }}
-      Vault UI: http://10.0.0.100:30201 
+      Vault UI: http://10.0.0.100:30201
+      Credentials file created at: /home/{{ ansible_user }}/.vault-credentials 
