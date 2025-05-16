@@ -1,0 +1,37 @@
+---
+- name: Cleanup Monitoring Stack
+  hosts: servers
+  become: yes
+  tasks:
+    - name: Uninstall kube-prometheus-stack
+      community.kubernetes.helm:
+        name: prometheus
+        state: absent
+        release_namespace: monitoring
+      environment:
+        KUBECONFIG: "/home/{{ ansible_user }}/k3s.yaml"
+
+    - name: Delete monitoring namespace
+      community.kubernetes.k8s:
+        name: monitoring
+        api_version: v1
+        kind: Namespace
+        state: absent
+      environment:
+        KUBECONFIG: "/home/{{ ansible_user }}/k3s.yaml"
+
+    - name: Wait for namespace to be deleted
+      community.kubernetes.k8s_info:
+        kind: Namespace
+        name: monitoring
+      register: namespace
+      until: namespace.resources | length == 0
+      retries: 30
+      delay: 5
+      environment:
+        KUBECONFIG: "/home/{{ ansible_user }}/k3s.yaml"
+
+    - name: Remove monitoring values file
+      file:
+        path: "/home/{{ ansible_user }}/monitoring-values.yaml"
+        state: absent 

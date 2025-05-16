@@ -1,0 +1,137 @@
+# Prometheus configuration
+prometheus:
+  prometheusSpec:
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          accessModes: ["ReadWriteOnce"]
+          storageClassName: "local-path"
+          resources:
+            requests:
+              storage: 10Gi
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorNamespaceSelector: {}
+    serviceMonitorSelector: {}
+    podMonitorSelectorNilUsesHelmValues: false
+    podMonitorNamespaceSelector: {}
+    podMonitorSelector: {}
+    ruleSelectorNilUsesHelmValues: false
+    ruleNamespaceSelector: {}
+    ruleSelector: {}
+    probeSelectorNilUsesHelmValues: false
+    probeNamespaceSelector: {}
+    probeSelector: {}
+    scrapeConfigSelectorNilUsesHelmValues: false
+    scrapeConfigNamespaceSelector: {}
+    scrapeConfigSelector: {}
+    alertingRules: {}
+    additionalScrapeConfigs: {}
+    additionalAlertManagerConfigs: {}
+    additionalAlertRelabelConfigs: {}
+    additionalScrapeConfigsSecret: {}
+    additionalSecrets: {}
+    configSecret: {}
+    containers: []
+    initContainers: []
+    priorityClassName: ""
+    replicas: 1
+    retention: 15d
+    routePrefix: /
+    externalLabels: {}
+    externalUrl: ""
+    listenLocal: false
+    logFormat: logfmt
+    logLevel: info
+    paused: false
+    portName: web
+    replicas: 1
+    resources: {}
+    routePrefix: /
+    ruleSelector: {}
+    ruleNamespaceSelector: {}
+    secrets: []
+    securityContext: {}
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}
+    shards: 1
+    tolerations: []
+    version: ""
+    volumeMounts: []
+    volumes: []
+    walCompression: false
+    web:
+      pageTitle: "Prometheus Time Series Collection and Processing Server"
+      remoteWriteReceiver: false
+    service:
+      type: NodePort
+      nodePort: 30300
+
+# Grafana configuration
+grafana:
+  enabled: true
+  admin:
+    existingSecret: ""
+    userKey: admin-user
+    passwordKey: admin-password
+    password: "admin"  # Default password, change in production
+  ingress:
+    enabled: false
+  service:
+    type: NodePort
+    nodePort: 30301
+  persistence:
+    enabled: true
+    storageClassName: "local-path"
+    size: 10Gi
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: 'default'
+          orgId: 1
+          folder: ''
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards
+  dashboards:
+    default:
+      kubernetes-cluster:
+        gnetId: 7249
+        revision: 1
+        datasource: Prometheus
+      kubernetes-pods:
+        gnetId: 6417
+        revision: 1
+        datasource: Prometheus
+      kubernetes-nodes:
+        gnetId: 6418
+        revision: 1
+        datasource: Prometheus
+
+# AlertManager configuration
+alertmanager:
+  enabled: true
+  service:
+    type: NodePort
+    nodePort: 30302
+  persistence:
+    enabled: true
+    storageClassName: "local-path"
+    size: 1Gi
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      group_by: ['job']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      receiver: 'null'
+      routes:
+        - match:
+            alertname: Watchdog
+          receiver: 'null'
+    receivers:
+      - name: 'null' 

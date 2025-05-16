@@ -1,0 +1,6 @@
+---
+- name: Setup Monitoring Stack on Kubernetes
+  hosts: servers
+  become: yes
+  roles:
+    - monitoring_k8s 
