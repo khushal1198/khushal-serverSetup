@@ -1,6 +1,37 @@
-# Server Setup Repository
+# Server Setup with Ansible
 
-This repository contains Ansible playbooks and configurations for setting up and maintaining server infrastructure.
+This repository contains Ansible playbooks and roles for setting up and managing server configurations, including Jenkins and HashiCorp Vault on Kubernetes.
+
+## Jenkins Setup
+
+### Installation
+- Jenkins is installed on Kubernetes using the provided Ansible role.
+- The role ensures idempotency and handles cleanup if needed.
+
+### Access
+- Jenkins UI is accessible at `http://<server-ip>:30000`.
+- Default credentials are set during installation.
+
+## HashiCorp Vault Setup
+
+### Installation
+- Vault is installed on Kubernetes using the provided Ansible role.
+- The role configures Vault in standalone mode with file storage.
+
+### Initialization and Unsealing
+- Vault is initialized and unsealed automatically by the Ansible role.
+- The unseal key and root token are generated and displayed after setup.
+
+### Access
+- Vault UI is accessible at `http://<server-ip>:30201`.
+- **Important:** Store the root token and unseal key securely. Do not commit them to version control.
+
+## Usage
+- Run the Ansible playbooks to set up or clean up Jenkins and Vault.
+- Ensure you have Ansible installed and configured correctly.
+
+## Contributing
+Feel free to submit issues and pull requests.
 
 ## Structure
 
@@ -41,14 +72,6 @@ This repository contains Ansible playbooks and configurations for setting up and
 - `playbooks/setup.yml`: Basic server setup
 - `playbooks/security.yml`: Security hardening
 - `playbooks/monitoring.yml`: Monitoring setup
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Commit your changes
-4. Push to the branch
-5. Create a Pull Request
 
 ## License
 

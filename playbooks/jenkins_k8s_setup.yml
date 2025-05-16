@@ -1,0 +1,6 @@
+---
+- name: Setup Jenkins on Kubernetes
+  hosts: servers
+  become: yes
+  roles:
+    - jenkins_k8s 

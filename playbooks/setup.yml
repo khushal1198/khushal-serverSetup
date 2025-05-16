@@ -37,19 +37,4 @@
       service:
         name: fail2ban
         state: started
-        enabled: yes
-
-    - name: Create admin user
-      user:
-        name: "{{ admin_user }}"
-        groups: sudo
-        shell: /bin/bash
-        state: present
-      vars:
-        admin_user: "{{ lookup('env', 'ADMIN_USER') | default('admin') }}"
-
-    - name: Set up authorized keys for admin user
-      authorized_key:
-        user: "{{ admin_user }}"
-        state: present
-        key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}" 
+        enabled: yes 

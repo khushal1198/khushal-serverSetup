@@ -1,0 +1,81 @@
+---
+- name: Install Docker
+  become: yes
+  apt:
+    name: docker.io
+    state: present
+    update_cache: yes
+
+- name: Enable and start Docker
+  become: yes
+  systemd:
+    name: docker
+    enabled: yes
+    state: started
+
+- name: Add user to docker group
+  become: yes
+  user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: yes
+
+- name: Install k3s (Kubernetes)
+  become: yes
+  shell: |
+    curl -sfL https://get.k3s.io | sh -
+  args:
+    creates: /usr/local/bin/k3s
+
+- name: Copy kubeconfig for user
+  become: yes
+  shell: |
+    cat /etc/rancher/k3s/k3s.yaml > /home/{{ ansible_user }}/k3s.yaml
+    chown {{ ansible_user }}:{{ ansible_user }} /home/{{ ansible_user }}/k3s.yaml
+  args:
+    creates: /home/{{ ansible_user }}/k3s.yaml
+
+- name: Set KUBECONFIG environment variable
+  ansible.builtin.lineinfile:
+    path: /home/{{ ansible_user }}/.bashrc
+    line: 'export KUBECONFIG=/home/{{ ansible_user }}/k3s.yaml'
+    insertafter: EOF
+  become: yes
+  become_user: "{{ ansible_user }}"
+
+- name: Install Helm
+  become: yes
+  shell: |
+    curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+  args:
+    creates: /usr/local/bin/helm
+
+- name: Add Jenkins Helm repo
+  become: yes
+  shell: |
+    helm repo add jenkins https://charts.jenkins.io
+    helm repo update
+  environment:
+    KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
+
+- name: Create Jenkins namespace
+  become: yes
+  shell: |
+    kubectl create namespace jenkins || true
+  environment:
+    KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
+
+- name: Copy Jenkins values file
+  copy:
+    src: jenkins-values.yaml
+    dest: /home/{{ ansible_user }}/jenkins-values.yaml
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: 0644
+
+- name: Install or Upgrade Jenkins with Helm
+  become: yes
+  shell: |
+    helm upgrade --install jenkins jenkins/jenkins -f /home/{{ ansible_user }}/jenkins-values.yaml -n jenkins
+  environment:
+    KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml 
