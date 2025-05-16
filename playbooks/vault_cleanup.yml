@@ -1,0 +1,24 @@
+---
+- name: Cleanup Vault from Kubernetes
+  hosts: servers
+  become: yes
+  tasks:
+    - name: Delete Vault Helm release
+      shell: helm uninstall vault -n vault-system || true
+      environment:
+        KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
+
+    - name: Delete Vault StatefulSet
+      shell: kubectl delete statefulset vault -n vault-system --ignore-not-found
+      environment:
+        KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
+
+    - name: Delete Vault PVCs
+      shell: kubectl delete pvc -l app.kubernetes.io/instance=vault -n vault-system --ignore-not-found
+      environment:
+        KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
+
+    - name: Delete Vault ConfigMap
+      shell: kubectl delete configmap vault-config -n vault-system --ignore-not-found
+      environment:
+        KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml 

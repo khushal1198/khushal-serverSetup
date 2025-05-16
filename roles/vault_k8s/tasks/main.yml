@@ -1,0 +1,80 @@
+---
+- name: Add HashiCorp Helm repo
+  become: yes
+  shell: |
+    helm repo add hashicorp https://helm.releases.hashicorp.com
+    helm repo update
+  environment:
+    KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
+
+- name: Create Vault namespace
+  become: yes
+  shell: |
+    kubectl create namespace vault-system || true
+  environment:
+    KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
+
+- name: Copy Vault values file
+  copy:
+    src: vault-values.yaml
+    dest: /home/{{ ansible_user }}/vault-values.yaml
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: 0644
+
+- name: Install Vault with Helm
+  become: yes
+  shell: |
+    helm upgrade --install vault hashicorp/vault -f /home/{{ ansible_user }}/vault-values.yaml -n vault-system
+  environment:
+    KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
+
+- name: Wait for Vault pod to be running
+  become: yes
+  shell: kubectl get pod -n vault-system vault-0 -o jsonpath='{.status.phase}' | grep -q Running
+  environment:
+    KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
+  register: vault_pod_status
+  retries: 30
+  delay: 10
+  until: vault_pod_status.rc == 0
+  ignore_errors: yes
+
+- name: Initialize Vault
+  become: yes
+  shell: |
+    kubectl exec -n vault-system vault-0 -- vault operator init -key-shares=1 -key-threshold=1 -format=json > /home/{{ ansible_user }}/vault-init.json
+  environment:
+    KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
+  args:
+    creates: /home/{{ ansible_user }}/vault-init.json
+
+- name: Get Unseal Key
+  become: yes
+  shell: |
+    cat /home/{{ ansible_user }}/vault-init.json | jq -r '.unseal_keys_b64[0]'
+  environment:
+    KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
+  register: unseal_key
+
+- name: Unseal Vault
+  become: yes
+  shell: kubectl exec -n vault-system vault-0 -- vault operator unseal {{ unseal_key.stdout }}
+  environment:
+    KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
+
+- name: Get Root Token
+  become: yes
+  shell: |
+    cat /home/{{ ansible_user }}/vault-init.json | jq -r '.root_token'
+  environment:
+    KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
+  register: root_token
+
+- name: Display Vault Access Information
+  debug:
+    msg: |
+      Vault is now initialized and unsealed!
+      Root Token: {{ root_token.stdout }}
+      Unseal Key: {{ unseal_key.stdout }}
+      Vault UI: http://10.0.0.100:30201 

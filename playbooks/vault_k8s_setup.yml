@@ -1,0 +1,6 @@
+---
+- name: Setup Vault on Kubernetes
+  hosts: servers
+  become: yes
+  roles:
+    - vault_k8s 

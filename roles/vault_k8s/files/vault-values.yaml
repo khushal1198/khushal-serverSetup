@@ -1,0 +1,49 @@
+server:
+  dev:
+    enabled: false
+  standalone:
+    enabled: true
+    config: |
+      ui = true
+      listener "tcp" {
+        tls_disable = 1
+        address = "[::]:8200"
+        cluster_address = "[::]:8201"
+      }
+      storage "file" {
+        path = "/vault/data"
+      }
+      disable_mlock = true
+  dataStorage:
+    enabled: true
+    size: 10Gi
+    storageClass: "local-path"
+  auditStorage:
+    enabled: true
+    size: 10Gi
+    storageClass: "local-path"
+  service:
+    enabled: true
+    type: NodePort
+    nodePort: 30200
+  serviceAccount:
+    create: true
+
+ui:
+  enabled: true
+  serviceType: NodePort
+  serviceNodePort: 30201
+  serviceAccount:
+    create: true
+
+injector:
+  enabled: true
+  replicas: 1
+
+csi:
+  enabled: true
+  driver:
+    name: vault
+    image:
+      repository: hashicorp/vault-csi-provider
+      tag: latest 
