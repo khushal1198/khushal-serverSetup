@@ -26,6 +26,10 @@ inventory/hosts
 *.vault
 vault_pass.txt
 
+# Vault
+.vault-credentials
+vault-init.json
+
 # IDE
 .idea/
 .vscode/
