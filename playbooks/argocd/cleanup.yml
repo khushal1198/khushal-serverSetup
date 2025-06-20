@@ -1,0 +1,21 @@
+---
+- name: Remove ArgoCD from Kubernetes
+  hosts: servers
+  become: yes
+  tasks:
+    - name: Delete ArgoCD namespace and all resources
+      command: kubectl delete namespace argocd
+      register: delete_result
+      failed_when: delete_result.rc != 0 and "not found" not in delete_result.stderr
+      changed_when: delete_result.rc == 0
+
+    - name: Wait for ArgoCD namespace to be deleted
+      command: kubectl get namespace argocd
+      register: namespace_check
+      until: namespace_check.rc != 0
+      retries: 30
+      delay: 10
+
+    - name: Display cleanup completion
+      debug:
+        msg: "ArgoCD has been successfully removed from the cluster." 

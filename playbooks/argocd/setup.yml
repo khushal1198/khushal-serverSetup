@@ -1,0 +1,54 @@
+---
+- name: Install ArgoCD on Kubernetes
+  hosts: servers
+  become: yes
+  tasks:
+    - name: Create ArgoCD namespace
+      command: kubectl create namespace argocd
+      register: namespace_result
+      failed_when: namespace_result.rc != 0 and "already exists" not in namespace_result.stderr
+      changed_when: namespace_result.rc == 0
+
+    - name: Install ArgoCD using official manifests
+      command: kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+      register: install_result
+      changed_when: install_result.rc == 0
+
+    - name: Wait for ArgoCD server pod to be ready
+      command: kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=argocd-server -n argocd --timeout=300s
+      register: wait_result
+      until: wait_result.rc == 0
+      retries: 30
+      delay: 10
+
+    - name: Expose ArgoCD server via NodePort
+      command: kubectl patch svc argocd-server -n argocd -p '{"spec":{"type":"NodePort"}}'
+      register: nodeport_result
+      changed_when: nodeport_result.rc == 0
+
+    - name: Get ArgoCD NodePort
+      command: kubectl get svc argocd-server -n argocd -o jsonpath='{.spec.ports[0].nodePort}'
+      register: argocd_nodeport
+      changed_when: false
+
+    - name: Display ArgoCD access information
+      debug:
+        msg: |
+          ArgoCD has been installed successfully!
+          
+          Access Information:
+          - Namespace: argocd
+          - NodePort: {{ argocd_nodeport.stdout | default('Not available yet') }}
+          
+          To access ArgoCD UI:
+          1. Get the admin password:
+             kubectl -n argocd get secret argocd-secret -o jsonpath='{.data.admin\.password}' | base64 -d; echo
+          2. Open: https://{{ ansible_host }}:{{ argocd_nodeport.stdout | default('NODE_PORT') }}
+          3. Username: admin
+          4. Password: (from step 1)
+          
+          Alternative - Port forward:
+          kubectl port-forward svc/argocd-server -n argocd 8080:443
+          Then open: https://localhost:8080
+          
+          See playbooks/argocd/README.md for detailed access instructions. 
