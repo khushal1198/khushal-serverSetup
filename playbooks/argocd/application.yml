@@ -1,0 +1,70 @@
+---
+- name: Create ArgoCD Application for CI/CD
+  hosts: servers
+  become: yes
+  vars:
+    # Update these variables with your actual repository details
+    app_name: "hello-grpc"
+    repo_url: "https://github.com/khushal1198/hello_grpc"
+    repo_path: "k8s"  # Path to your Kubernetes manifests in the repo
+    target_namespace: "default"
+    target_revision: "master"  # Branch to track
+  tasks:
+    - name: Create ArgoCD Application manifest
+      copy:
+        dest: "/tmp/{{ app_name }}-application.yml"
+        content: |
+          apiVersion: argoproj.io/v1alpha1
+          kind: Application
+          metadata:
+            name: {{ app_name }}
+            namespace: argocd
+          spec:
+            project: default
+            source:
+              repoURL: {{ repo_url }}
+              targetRevision: {{ target_revision }}
+              path: {{ repo_path }}
+            destination:
+              server: https://kubernetes.default.svc
+              namespace: {{ target_namespace }}
+            syncPolicy:
+              automated:
+                prune: true
+                selfHeal: true
+              syncOptions:
+                - CreateNamespace=true
+                - PrunePropagationPolicy=foreground
+                - PruneLast=true
+            revisionHistoryLimit: 10
+
+    - name: Apply ArgoCD Application
+      command: kubectl apply -f /tmp/{{ app_name }}-application.yml
+      register: app_result
+      changed_when: app_result.rc == 0
+
+    - name: Wait for ArgoCD Application to be created
+      command: kubectl -n argocd get application {{ app_name }}
+      register: app_check
+      until: app_check.rc == 0
+      retries: 10
+      delay: 5
+
+    - name: Display ArgoCD Application information
+      debug:
+        msg: |
+          ArgoCD Application "{{ app_name }}" has been created!
+          
+          Application Details:
+          - Name: {{ app_name }}
+          - Repository: {{ repo_url }}
+          - Path: {{ repo_path }}
+          - Branch: {{ target_revision }}
+          - Namespace: {{ target_namespace }}
+          
+          To view the application:
+          1. Open ArgoCD UI: https://{{ ansible_host }}:{{ argocd_nodeport.stdout | default('NODE_PORT') }}
+          2. Login with admin credentials
+          3. Click on "{{ app_name }}" application
+          
+          The application will automatically sync when you push changes to {{ target_revision }} branch. 

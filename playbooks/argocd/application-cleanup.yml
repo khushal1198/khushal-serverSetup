@@ -1,0 +1,23 @@
+---
+- name: Remove ArgoCD Application
+  hosts: servers
+  become: yes
+  vars:
+    app_name: "hello-grpc"  # Update this to match your application name
+  tasks:
+    - name: Delete ArgoCD Application
+      command: kubectl -n argocd delete application {{ app_name }}
+      register: delete_result
+      failed_when: delete_result.rc != 0 and "not found" not in delete_result.stderr
+      changed_when: delete_result.rc == 0
+
+    - name: Wait for ArgoCD Application to be deleted
+      command: kubectl -n argocd get application {{ app_name }}
+      register: app_check
+      until: app_check.rc != 0
+      retries: 10
+      delay: 5
+
+    - name: Display cleanup completion
+      debug:
+        msg: "ArgoCD Application '{{ app_name }}' has been successfully removed." 
