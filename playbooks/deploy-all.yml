@@ -1,113 +1,5 @@
 ---
-- name: Complete Server Setup - Master Deployment
-  hosts: servers
-  become: yes
-  vars:
-    # Configuration variables
-    server_ip: "{{ ansible_host }}"
-    ingress_http_port: 30080
-    ingress_https_port: 30443
-    
-  tasks:
-    - name: Display deployment start message
-      debug:
-        msg: |
-          🚀 Starting Complete Server Setup
-          =================================
-          Server: {{ server_ip }}
-          User: {{ ansible_user }}
-          
-          This will install:
-          ✅ Basic server setup (packages, firewall, security)
-          ✅ k3s (Kubernetes)
-          ✅ Helm package manager
-          ✅ Nginx Ingress Controller
-          ✅ Monitoring Stack (Prometheus + Grafana)
-          ✅ Kubernetes Dashboard
-          ✅ ArgoCD (CI/CD)
-          ✅ HashiCorp Vault
-          ✅ Jenkins
-          ✅ Ingress resources for all services
-          
-          Estimated time: 15-20 minutes
-
-    - name: Check server connectivity
-      ping:
-
-- name: Basic Server Setup
-  hosts: servers
-  become: yes
-  tasks:
-    - name: Include basic setup tasks
-      include_tasks: setup-tasks.yml
-
-- name: Install k3s
-  hosts: servers
-  become: yes
-  tasks:
-    - name: Check if k3s is already installed
-      command: k3s --version
-      register: k3s_check
-      ignore_errors: yes
-
-    - name: Install k3s if not present
-      shell: |
-        curl -sfL https://get.k3s.io | sh -
-      when: k3s_check.rc != 0
-
-    - name: Wait for k3s to be ready
-      command: kubectl get nodes
-      register: k3s_ready
-      until: k3s_ready.rc == 0
-      retries: 30
-      delay: 10
-
-    - name: Copy k3s config to user directory
-      copy:
-        src: /etc/rancher/k3s/k3s.yaml
-        dest: /home/{{ ansible_user }}/k3s.yaml
-        remote_src: yes
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        mode: '0600'
-
-    - name: Fix k3s config permissions for kubectl access
-      file:
-        path: /etc/rancher/k3s/k3s.yaml
-        mode: '0644'
-        owner: root
-        group: root
-
-    - name: Display k3s status
-      debug:
-        msg: "✅ k3s is running and accessible"
-
-- name: Install Helm
-  hosts: servers
-  become: yes
-  tasks:
-    - name: Check if Helm is installed
-      command: helm version
-      register: helm_check
-      ignore_errors: yes
-
-    - name: Install Helm if not present
-      shell: |
-        curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-      when: helm_check.rc != 0
-
-    - name: Display Helm status
-      debug:
-        msg: "✅ Helm is installed and ready"
-
-- name: Install Nginx Ingress Controller
-  hosts: servers
-  become: yes
-  environment:
-    KUBECONFIG: "/etc/rancher/k3s/k3s.yaml"
-  tasks:
-    - name: Include ingress setup tasks
-      include_tasks: ingress/setup-tasks.yml
+- import_playbook: setup.yml
 
 - name: Install Monitoring Stack
   hosts: servers
@@ -115,8 +7,7 @@
   environment:
     KUBECONFIG: "/etc/rancher/k3s/k3s.yaml"
   tasks:
-    - name: Include monitoring setup tasks
-      include_tasks: monitoring/setup-tasks.yml
+    - include_tasks: monitoring/setup-tasks.yml
 
 - name: Install Kubernetes Dashboard
   hosts: servers
@@ -124,8 +15,7 @@
   environment:
     KUBECONFIG: "/etc/rancher/k3s/k3s.yaml"
   tasks:
-    - name: Include dashboard setup
-      include_tasks: dashboard/setup-tasks.yml
+    - include_tasks: dashboard/setup-tasks.yml
 
 - name: Install ArgoCD
   hosts: servers
@@ -133,8 +23,7 @@
   environment:
     KUBECONFIG: "/etc/rancher/k3s/k3s.yaml"
   tasks:
-    - name: Include ArgoCD setup
-      include_tasks: argocd/setup-tasks.yml
+    - include_tasks: argocd/setup-tasks.yml
 
 - name: Install HashiCorp Vault
   hosts: servers
@@ -142,8 +31,7 @@
   environment:
     KUBECONFIG: "/etc/rancher/k3s/k3s.yaml"
   tasks:
-    - name: Include Vault setup
-      include_tasks: vault/setup-tasks.yml
+    - include_tasks: vault/setup-tasks.yml
 
 - name: Install Jenkins
   hosts: servers
@@ -151,8 +39,7 @@
   environment:
     KUBECONFIG: "/etc/rancher/k3s/k3s.yaml"
   tasks:
-    - name: Include Jenkins setup
-      include_tasks: jenkins/setup-tasks.yml
+    - include_tasks: jenkins/setup-tasks.yml
 
 - name: Final Validation and Summary
   hosts: servers

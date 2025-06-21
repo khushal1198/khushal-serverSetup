@@ -39,4 +39,40 @@
       service:
         name: fail2ban
         state: started
-        enabled: yes 
+        enabled: yes
+
+    # --- K3s Install ---
+    - name: Install k3s (Kubernetes)
+      shell: |
+        curl -sfL https://get.k3s.io | sh -
+      args:
+        creates: /usr/local/bin/k3s
+
+    - name: Wait for k3s to be ready
+      shell: |
+        k3s kubectl get node
+      register: k3s_ready
+      retries: 10
+      delay: 10
+      until: k3s_ready.rc == 0
+
+    - name: Fix k3s config permissions for kubectl access
+      file:
+        path: /etc/rancher/k3s/k3s.yaml
+        mode: '0644'
+        owner: root
+        group: root
+
+    # --- Helm Install ---
+    - name: Download Helm install script
+      get_url:
+        url: https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+        dest: /tmp/get-helm-3.sh
+        mode: '0755'
+
+    - name: Install Helm
+      shell: bash /tmp/get-helm-3.sh
+      args:
+        creates: /usr/local/bin/helm
+
+- import_playbook: ingress/setup.yml 

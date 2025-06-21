@@ -2,5 +2,7 @@
 - name: Setup Vault on Kubernetes
   hosts: servers
   become: yes
-  roles:
-    - vault_k8s 
+  environment:
+    KUBECONFIG: "/etc/rancher/k3s/k3s.yaml"
+  tasks:
+    - include_tasks: setup-tasks.yml 
