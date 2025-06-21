@@ -1,0 +1,71 @@
+---
+- name: Install and Expose Kubernetes Dashboard
+  hosts: servers
+  become: yes
+  vars:
+    dashboard_manifest_url: "https://raw.githubusercontent.com/kubernetes/dashboard/v2.7.0/aio/deploy/recommended.yaml"
+    dashboard_namespace: "kubernetes-dashboard"
+    dashboard_nodeport: 31000
+    dashboard_sa: "admin-user"
+    dashboard_sa_ns: "kubernetes-dashboard"
+  tasks:
+    - name: Install Kubernetes Dashboard
+      command: kubectl apply -f {{ dashboard_manifest_url }}
+      register: dashboard_apply
+      changed_when: dashboard_apply.rc == 0
+
+    - name: Patch Dashboard service to NodePort
+      command: >
+        kubectl -n {{ dashboard_namespace }} patch svc kubernetes-dashboard \
+        -p '{"spec": {"type": "NodePort", "ports": [{"port": 443, "targetPort": 8443, "nodePort": {{ dashboard_nodeport }}}]}}'
+      register: patch_result
+      changed_when: patch_result.rc == 0
+
+    - name: Create admin ServiceAccount
+      shell: >
+        kubectl -n {{ dashboard_sa_ns }} create serviceaccount {{ dashboard_sa }} --dry-run=client -o yaml | kubectl apply -f -
+      register: sa_result
+      changed_when: sa_result.rc == 0
+
+    - name: Bind admin ServiceAccount to cluster-admin
+      shell: >
+        kubectl create clusterrolebinding {{ dashboard_sa }}-binding \
+        --clusterrole=cluster-admin \
+        --serviceaccount={{ dashboard_sa_ns }}:{{ dashboard_sa }} --dry-run=client -o yaml | kubectl apply -f -
+      register: crb_result
+      changed_when: crb_result.rc == 0
+
+    - name: Wait for Dashboard pod to be ready
+      command: kubectl -n {{ dashboard_namespace }} rollout status deployment/kubernetes-dashboard
+      register: rollout_result
+      changed_when: rollout_result.rc == 0
+
+    - name: Allow NodePort through firewall
+      ufw:
+        rule: allow
+        port: "{{ dashboard_nodeport }}"
+        proto: tcp
+      register: firewall_result
+      changed_when: firewall_result.changed
+
+    - name: Get server public IP
+      command: curl -s ifconfig.me
+      register: public_ip
+      changed_when: false
+      ignore_errors: true
+
+    - name: Print Dashboard access instructions
+      debug:
+        msg: |
+          Kubernetes Dashboard is installed and exposed!
+
+          Access URL: https://{{ public_ip.stdout | default(ansible_host) }}:{{ dashboard_nodeport }}
+
+          To generate a login token, run:
+          ssh -i ~/.ssh/id_rsa_jenkins khushal@{{ ansible_host }} "kubectl -n kubernetes-dashboard create token admin-user --duration=8760h"
+
+          Note: You may get a browser warning due to self-signed certs. Proceed to the site anyway.
+
+          Docs: https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard/
+
+          Firewall rule for port {{ dashboard_nodeport }} has been added. 

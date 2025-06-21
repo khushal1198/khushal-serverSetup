@@ -1,0 +1,39 @@
+---
+- name: Remove Kubernetes Dashboard
+  hosts: servers
+  become: yes
+  vars:
+    dashboard_manifest_url: "https://raw.githubusercontent.com/kubernetes/dashboard/v2.7.0/aio/deploy/recommended.yaml"
+    dashboard_namespace: "kubernetes-dashboard"
+    dashboard_sa: "admin-user"
+    dashboard_nodeport: 31000
+  tasks:
+    - name: Delete Kubernetes Dashboard
+      command: kubectl delete -f {{ dashboard_manifest_url }}
+      ignore_errors: true
+
+    - name: Delete admin ServiceAccount
+      command: kubectl -n {{ dashboard_namespace }} delete serviceaccount {{ dashboard_sa }}
+      ignore_errors: true
+
+    - name: Delete admin clusterrolebinding
+      command: kubectl delete clusterrolebinding {{ dashboard_sa }}-binding
+      ignore_errors: true
+
+    - name: Delete dashboard namespace (optional)
+      command: kubectl delete namespace {{ dashboard_namespace }}
+      ignore_errors: true
+
+    - name: Remove NodePort from firewall
+      ufw:
+        rule: allow
+        port: "{{ dashboard_nodeport }}"
+        proto: tcp
+        delete: yes
+      register: firewall_cleanup
+      changed_when: firewall_cleanup.changed
+      ignore_errors: true
+
+    - name: Print cleanup completion
+      debug:
+        msg: "Kubernetes Dashboard and related resources have been removed." 
