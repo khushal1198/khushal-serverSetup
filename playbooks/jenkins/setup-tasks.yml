@@ -16,7 +16,7 @@
 
 - name: Install Jenkins using Helm
   command: >
-    helm install jenkins jenkins/jenkins 
+    helm upgrade --install jenkins jenkins/jenkins 
     --namespace jenkins 
     --create-namespace 
     --set controller.serviceType=NodePort

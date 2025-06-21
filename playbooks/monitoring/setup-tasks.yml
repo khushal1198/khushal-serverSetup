@@ -18,7 +18,7 @@
 
 - name: Install Prometheus with Node Exporter
   command: >
-    helm install prometheus prometheus-community/kube-prometheus-stack 
+    helm upgrade --install prometheus prometheus-community/kube-prometheus-stack 
     --namespace {{ monitoring_namespace }} 
     --create-namespace 
     --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false
@@ -33,6 +33,7 @@
     --set grafana."grafana.ini".server.serve_from_sub_path=true
     --set prometheus.service.type=NodePort
     --set prometheus.service.nodePort={{ prometheus_nodeport }}
+    --set prometheus.prometheusSpec.externalUrl=http://{{ ansible_host }}:30080/prometheus
     --set prometheus.nodeExporter.enabled=true
     --set prometheus.nodeExporter.service.type=NodePort
     --set prometheus.nodeExporter.service.nodePort=32002
@@ -56,6 +57,7 @@
         annotations:
           nginx.ingress.kubernetes.io/rewrite-target: /$2
           nginx.ingress.kubernetes.io/use-regex: "true"
+          nginx.ingress.kubernetes.io/proxy-buffering: "off"
       spec:
         ingressClassName: nginx
         rules:
@@ -81,6 +83,7 @@
         annotations:
           nginx.ingress.kubernetes.io/rewrite-target: /$2
           nginx.ingress.kubernetes.io/use-regex: "true"
+          nginx.ingress.kubernetes.io/proxy-buffering: "off"
       spec:
         ingressClassName: nginx
         rules:

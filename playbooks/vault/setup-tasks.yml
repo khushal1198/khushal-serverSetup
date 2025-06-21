@@ -16,7 +16,7 @@
 
 - name: Install Vault using Helm
   command: >
-    helm install vault hashicorp/vault 
+    helm upgrade --install vault hashicorp/vault 
     --namespace vault 
     --create-namespace 
     --set server.dev.enabled=true

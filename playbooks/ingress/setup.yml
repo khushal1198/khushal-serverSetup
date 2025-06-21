@@ -29,7 +29,7 @@
 
     - name: Install Nginx Ingress Controller
       command: >
-        helm install ingress-nginx ingress-nginx/ingress-nginx 
+        helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx 
         --namespace {{ ingress_namespace }} 
         --create-namespace 
         --set controller.service.type=NodePort
