@@ -1,42 +1,46 @@
 ---
-- name: Cleanup Monitoring Stack
-  hosts: servers
-  become: yes
+- name: Uninstall kube-prometheus-stack
+  command: helm uninstall prometheus -n {{ monitoring_namespace }}
+  register: helm_uninstall
+  changed_when: helm_uninstall.rc == 0
+  ignore_errors: true
   vars:
     monitoring_namespace: "monitoring"
   environment:
     KUBECONFIG: "/etc/rancher/k3s/k3s.yaml"
-  tasks:
-    - name: Uninstall kube-prometheus-stack
-      command: helm uninstall prometheus -n {{ monitoring_namespace }}
-      register: helm_uninstall
-      changed_when: helm_uninstall.rc == 0
-      ignore_errors: true
 
-    - name: Delete monitoring namespace
-      command: kubectl delete namespace {{ monitoring_namespace }}
-      register: namespace_delete
-      changed_when: namespace_delete.rc == 0
-      ignore_errors: true
+- name: Delete monitoring namespace
+  command: kubectl delete namespace {{ monitoring_namespace }}
+  register: namespace_delete
+  changed_when: namespace_delete.rc == 0
+  ignore_errors: true
+  vars:
+    monitoring_namespace: "monitoring"
+  environment:
+    KUBECONFIG: "/etc/rancher/k3s/k3s.yaml"
 
-    - name: Wait for namespace to be deleted
-      command: kubectl get namespace {{ monitoring_namespace }}
-      register: namespace_check
-      until: namespace_check.rc != 0
-      retries: 30
-      delay: 5
-      changed_when: false
+- name: Wait for namespace to be deleted
+  command: kubectl get namespace {{ monitoring_namespace }}
+  register: namespace_check
+  until: namespace_check.rc != 0
+  retries: 30
+  delay: 5
+  changed_when: false
+  vars:
+    monitoring_namespace: "monitoring"
+  environment:
+    KUBECONFIG: "/etc/rancher/k3s/k3s.yaml"
 
-    - name: Print cleanup completion
-      debug:
-        msg: |
-          Monitoring stack has been removed.
-          
-          Removed:
-          - Prometheus
-          - Grafana
-          - Node Exporter
-          - All monitoring resources
-          
-          Note: Firewall rules are now managed by the Ingress Controller.
-          No individual NodePort firewall rules needed. 
+- name: Print cleanup completion
+  debug:
+    msg: |
+      Monitoring stack has been removed.
+      
+      Removed:
+      - Prometheus
+      - Grafana
+      - Node Exporter
+      - All monitoring resources
+      
+      Note: Firewall rules are now managed by the Ingress Controller.
+      No individual NodePort firewall rules needed. 

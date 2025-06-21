@@ -1,51 +1,56 @@
 ---
-- name: Cleanup Nginx Ingress Controller
-  hosts: servers
-  become: yes
+- name: Uninstall Nginx Ingress Controller
+  command: helm uninstall ingress-nginx -n {{ ingress_namespace }}
+  register: helm_uninstall
+  changed_when: helm_uninstall.rc == 0
+  ignore_errors: true
   vars:
     ingress_namespace: "ingress-nginx"
-    ingress_nodeport: 30080
-    ingress_ssl_nodeport: 30443
   environment:
     KUBECONFIG: "/etc/rancher/k3s/k3s.yaml"
-  tasks:
-    - name: Uninstall Nginx Ingress Controller
-      command: helm uninstall ingress-nginx -n {{ ingress_namespace }}
-      register: helm_uninstall
-      changed_when: helm_uninstall.rc == 0
-      ignore_errors: true
 
-    - name: Delete ingress-nginx namespace
-      command: kubectl delete namespace {{ ingress_namespace }}
-      register: namespace_delete
-      changed_when: namespace_delete.rc == 0
-      ignore_errors: true
+- name: Delete ingress-nginx namespace
+  command: kubectl delete namespace {{ ingress_namespace }}
+  register: namespace_delete
+  changed_when: namespace_delete.rc == 0
+  ignore_errors: true
+  vars:
+    ingress_namespace: "ingress-nginx"
+  environment:
+    KUBECONFIG: "/etc/rancher/k3s/k3s.yaml"
 
-    - name: Wait for namespace to be deleted
-      command: kubectl get namespace {{ ingress_namespace }}
-      register: namespace_check
-      until: namespace_check.rc != 0
-      retries: 30
-      delay: 5
-      changed_when: false
+- name: Wait for namespace to be deleted
+  command: kubectl get namespace {{ ingress_namespace }}
+  register: namespace_check
+  until: namespace_check.rc != 0
+  retries: 30
+  delay: 5
+  changed_when: false
+  vars:
+    ingress_namespace: "ingress-nginx"
+  environment:
+    KUBECONFIG: "/etc/rancher/k3s/k3s.yaml"
 
-    - name: Remove Ingress ports from firewall
-      ufw:
-        rule: deny
-        port: "{{ item }}"
-        proto: tcp
-      register: firewall_result
-      changed_when: firewall_result.changed
-      loop:
-        - "{{ ingress_nodeport }}"
-        - "{{ ingress_ssl_nodeport }}"
+- name: Remove Ingress ports from firewall
+  ufw:
+    rule: deny
+    port: "{{ item }}"
+    proto: tcp
+  register: firewall_result
+  changed_when: firewall_result.changed
+  loop:
+    - "{{ ingress_nodeport }}"
+    - "{{ ingress_ssl_nodeport }}"
+  vars:
+    ingress_nodeport: 30080
+    ingress_ssl_nodeport: 30443
 
-    - name: Print cleanup completion
-      debug:
-        msg: |
-          Nginx Ingress Controller has been removed.
-          
-          Removed:
-          - Ingress Controller
-          - All Ingress resources
-          - Firewall rules for Ingress ports 
+- name: Print cleanup completion
+  debug:
+    msg: |
+      Nginx Ingress Controller has been removed.
+      
+      Removed:
+      - Ingress Controller
+      - All Ingress resources
+      - Firewall rules for Ingress ports 

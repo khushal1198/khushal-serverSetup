@@ -1,8 +1,10 @@
 ---
 - name: Basic Server Setup
-  hosts: all
+  hosts: servers
   become: yes
   tasks:
+    - include_tasks: setup-tasks.yml
+
     - name: Update apt cache
       apt:
         update_cache: yes

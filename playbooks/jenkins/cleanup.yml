@@ -1,34 +1,30 @@
 ---
-- name: Cleanup Jenkins Installation
-  hosts: servers
+- name: Uninstall Jenkins Helm release
   become: yes
-  tasks:
-    - name: Uninstall Jenkins Helm release
-      become: yes
-      shell: |
-        helm uninstall jenkins -n jenkins
-      environment:
-        KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
-      ignore_errors: yes
+  shell: |
+    helm uninstall jenkins -n jenkins
+  environment:
+    KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
+  ignore_errors: yes
 
-    - name: Delete Jenkins PVCs
-      become: yes
-      shell: |
-        kubectl delete pvc --all -n jenkins
-      environment:
-        KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
-      ignore_errors: yes
+- name: Delete Jenkins PVCs
+  become: yes
+  shell: |
+    kubectl delete pvc --all -n jenkins
+  environment:
+    KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
+  ignore_errors: yes
 
-    - name: Delete Jenkins namespace
-      become: yes
-      shell: |
-        kubectl delete namespace jenkins --force --grace-period=0
-      environment:
-        KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
-      ignore_errors: yes
+- name: Delete Jenkins namespace
+  become: yes
+  shell: |
+    kubectl delete namespace jenkins --force --grace-period=0
+  environment:
+    KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
+  ignore_errors: yes
 
-    - name: Remove Jenkins values file
-      file:
-        path: /home/{{ ansible_user }}/jenkins-values.yaml
-        state: absent
-      become: yes 
+- name: Remove Jenkins values file
+  file:
+    path: /home/{{ ansible_user }}/jenkins-values.yaml
+    state: absent
+  become: yes 

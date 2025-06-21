@@ -1,33 +1,33 @@
 ---
-- name: Remove Kubernetes Dashboard
-  hosts: servers
-  become: yes
+- name: Delete Kubernetes Dashboard
+  command: kubectl delete -f {{ dashboard_manifest_url }}
+  ignore_errors: true
   vars:
     dashboard_manifest_url: "https://raw.githubusercontent.com/kubernetes/dashboard/v2.7.0/aio/deploy/recommended.yaml"
+
+- name: Delete admin ServiceAccount
+  command: kubectl -n {{ dashboard_namespace }} delete serviceaccount {{ dashboard_sa }}
+  ignore_errors: true
+  vars:
     dashboard_namespace: "kubernetes-dashboard"
     dashboard_sa: "admin-user"
-    dashboard_nodeport: 31000
-  tasks:
-    - name: Delete Kubernetes Dashboard
-      command: kubectl delete -f {{ dashboard_manifest_url }}
-      ignore_errors: true
 
-    - name: Delete admin ServiceAccount
-      command: kubectl -n {{ dashboard_namespace }} delete serviceaccount {{ dashboard_sa }}
-      ignore_errors: true
+- name: Delete admin clusterrolebinding
+  command: kubectl delete clusterrolebinding {{ dashboard_sa }}-binding
+  ignore_errors: true
+  vars:
+    dashboard_sa: "admin-user"
 
-    - name: Delete admin clusterrolebinding
-      command: kubectl delete clusterrolebinding {{ dashboard_sa }}-binding
-      ignore_errors: true
+- name: Delete dashboard namespace (optional)
+  command: kubectl delete namespace {{ dashboard_namespace }}
+  ignore_errors: true
+  vars:
+    dashboard_namespace: "kubernetes-dashboard"
 
-    - name: Delete dashboard namespace (optional)
-      command: kubectl delete namespace {{ dashboard_namespace }}
-      ignore_errors: true
-
-    - name: Print cleanup completion
-      debug:
-        msg: |
-          Kubernetes Dashboard and related resources have been removed.
-          
-          Note: Firewall rules are now managed by the Ingress Controller.
-          No individual NodePort firewall rules needed. 
+- name: Print cleanup completion
+  debug:
+    msg: |
+      Kubernetes Dashboard and related resources have been removed.
+      
+      Note: Firewall rules are now managed by the Ingress Controller.
+      No individual NodePort firewall rules needed. 

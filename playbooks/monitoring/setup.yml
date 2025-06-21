@@ -10,6 +10,8 @@
   environment:
     KUBECONFIG: "/etc/rancher/k3s/k3s.yaml"
   tasks:
+    - include_tasks: setup-tasks.yml
+
     - name: Create monitoring namespace
       command: kubectl create namespace {{ monitoring_namespace }}
       register: namespace_result

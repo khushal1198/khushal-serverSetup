@@ -1,0 +1,102 @@
+- name: Create Jenkins namespace
+  command: kubectl create namespace jenkins
+  register: namespace_result
+  changed_when: namespace_result.rc == 0
+  ignore_errors: true
+
+- name: Add Jenkins Helm repository
+  command: helm repo add jenkins https://charts.jenkins.io
+  register: helm_repo_add
+  changed_when: helm_repo_add.rc == 0
+
+- name: Update Helm repositories
+  command: helm repo update
+  register: helm_update
+  changed_when: helm_update.rc == 0
+
+- name: Install Jenkins using Helm
+  command: >
+    helm install jenkins jenkins/jenkins 
+    --namespace jenkins 
+    --create-namespace 
+    --set controller.serviceType=NodePort
+    --set controller.serviceNodePort=30000
+    --set controller.admin.username=admin
+    --set controller.admin.password=admin123
+  register: jenkins_install
+  changed_when: jenkins_install.rc == 0
+
+- name: Wait for Jenkins pod to be ready
+  command: kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=jenkins -n jenkins --timeout=300s
+  register: jenkins_ready
+  changed_when: jenkins_ready.rc == 0
+
+- name: Create Jenkins ingress resource
+  copy:
+    dest: /tmp/jenkins-ingress.yaml
+    content: |
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: jenkins-ingress
+        namespace: jenkins
+        annotations:
+          nginx.ingress.kubernetes.io/rewrite-target: /
+      spec:
+        ingressClassName: nginx
+        rules:
+        - host: jenkins.local
+          http:
+            paths:
+            - path: /
+              pathType: Prefix
+              backend:
+                service:
+                  name: jenkins
+                  port:
+                    number: 8080
+
+- name: Apply Jenkins ingress
+  command: kubectl apply -f /tmp/jenkins-ingress.yaml
+  register: jenkins_ingress_apply
+  changed_when: jenkins_ingress_apply.rc == 0
+
+- name: Get server public IP
+  command: curl -s ifconfig.me
+  register: public_ip
+  changed_when: false
+  ignore_errors: true
+
+- name: Print Jenkins access instructions
+  debug:
+    msg: |
+      ========================================
+      JENKINS SETUP COMPLETE
+      ========================================
+      
+      ========================================
+      ACCESS OPTIONS
+      ========================================
+      
+      Option 1 - Direct NodePort (temporary):
+      Jenkins UI: http://{{ public_ip.stdout | default(ansible_host) }}:30000
+      
+      Option 2 - Through Ingress (recommended):
+      Jenkins UI: http://{{ public_ip.stdout | default(ansible_host) }}:30080/jenkins (or jenkins.local:30080)
+      
+      ========================================
+      CREDENTIALS
+      ========================================
+      
+      Username: admin
+      Password: admin123
+      
+      ========================================
+      NEXT STEPS
+      ========================================
+      
+      1. Access Jenkins UI and complete initial setup
+      2. Install recommended plugins
+      3. Create your first pipeline
+      4. Access via Ingress Controller for better security
+      5. No firewall rules needed - handled by Ingress 

@@ -9,6 +9,8 @@
   environment:
     KUBECONFIG: "/etc/rancher/k3s/k3s.yaml"
   tasks:
+    - include_tasks: setup-tasks.yml
+
     - name: Create ingress-nginx namespace
       command: kubectl create namespace {{ ingress_namespace }}
       register: namespace_result

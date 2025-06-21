@@ -1,0 +1,35 @@
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  when: ansible_os_family == "Debian"
+
+- name: Install common packages
+  package:
+    name: "{{ packages }}"
+    state: present
+  vars:
+    packages:
+      - vim
+      - htop
+      - curl
+      - wget
+      - git
+      - ufw
+      - fail2ban
+
+- name: Configure timezone
+  timezone:
+    name: UTC
+
+- name: Set up basic firewall
+  ufw:
+    rule: allow
+    port: ssh
+    proto: tcp
+
+- name: Enable and start fail2ban
+  service:
+    name: fail2ban
+    state: started
+    enabled: yes 

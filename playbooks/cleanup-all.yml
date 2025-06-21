@@ -1,0 +1,81 @@
+---
+- name: Nuke Everything - Complete Server Reset
+  hosts: servers
+  become: yes
+  tasks:
+    - name: Display warning
+      debug:
+        msg: |
+          💥 NUKE EVERYTHING MODE
+          ======================
+          This will remove:
+          • All Kubernetes resources
+          • k3s completely
+          • All Docker containers/images
+          • All Helm releases
+          • All data and configurations
+          
+          ⚠️  WARNING: This is irreversible!
+
+    - name: Remove all Kubernetes resources
+      shell: |
+        kubectl delete all --all --all-namespaces --force --grace-period=0 || true
+        kubectl delete namespace --all --force --grace-period=0 || true
+        kubectl delete pv --all --force --grace-period=0 || true
+        kubectl delete pvc --all --all-namespaces --force --grace-period=0 || true
+      ignore_errors: yes
+
+    - name: Uninstall k3s completely
+      shell: |
+        /usr/local/bin/k3s-uninstall.sh || true
+        /usr/local/bin/k3s-agent-uninstall.sh || true
+      ignore_errors: yes
+
+    - name: Remove k3s data directories
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /var/lib/rancher
+        - /etc/rancher
+        - /var/lib/kubelet
+        - /var/lib/etcd
+        - /var/lib/cni
+        - /opt/cni
+        - /var/run/kubernetes
+
+    - name: Remove Docker containers and images
+      shell: |
+        docker stop $(docker ps -aq) || true
+        docker rm $(docker ps -aq) || true
+        docker rmi $(docker images -q) || true
+        docker system prune -af || true
+      ignore_errors: yes
+
+    - name: Remove Helm data
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /home/{{ ansible_user }}/.helm
+        - /home/{{ ansible_user }}/.kube
+        - /home/{{ ansible_user }}/k3s.yaml
+
+    - name: Reset firewall to default
+      shell: |
+        ufw --force reset
+        ufw default deny incoming
+        ufw default allow outgoing
+        ufw allow ssh
+        ufw --force enable
+      ignore_errors: yes
+
+    - name: Display completion
+      debug:
+        msg: |
+          💥 NUKE COMPLETE!
+          ================
+          Server is now completely clean.
+          
+          To reinstall everything:
+          ansible-playbook -i inventory/hosts playbooks/deploy-all.yml 

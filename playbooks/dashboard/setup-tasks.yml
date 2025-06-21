@@ -1,0 +1,115 @@
+- name: Install Kubernetes Dashboard
+  command: kubectl apply -f {{ dashboard_manifest_url }}
+  register: dashboard_apply
+  changed_when: dashboard_apply.rc == 0
+  vars:
+    dashboard_manifest_url: "https://raw.githubusercontent.com/kubernetes/dashboard/v2.7.0/aio/deploy/recommended.yaml"
+
+- name: Patch Dashboard service to NodePort
+  command: >
+    kubectl -n {{ dashboard_namespace }} patch svc kubernetes-dashboard \
+    -p '{"spec": {"type": "NodePort", "ports": [{"port": 443, "targetPort": 8443, "nodePort": {{ dashboard_nodeport }}}]}}'
+  register: patch_result
+  changed_when: patch_result.rc == 0
+  vars:
+    dashboard_namespace: "kubernetes-dashboard"
+    dashboard_nodeport: 31000
+
+- name: Create admin ServiceAccount
+  shell: >
+    kubectl -n {{ dashboard_sa_ns }} create serviceaccount {{ dashboard_sa }} --dry-run=client -o yaml | kubectl apply -f -
+  register: sa_result
+  changed_when: sa_result.rc == 0
+  vars:
+    dashboard_sa: "admin-user"
+    dashboard_sa_ns: "kubernetes-dashboard"
+
+- name: Bind admin ServiceAccount to cluster-admin
+  shell: >
+    kubectl create clusterrolebinding {{ dashboard_sa }}-binding \
+    --clusterrole=cluster-admin \
+    --serviceaccount={{ dashboard_sa_ns }}:{{ dashboard_sa }} --dry-run=client -o yaml | kubectl apply -f -
+  register: crb_result
+  changed_when: crb_result.rc == 0
+  vars:
+    dashboard_sa: "admin-user"
+    dashboard_sa_ns: "kubernetes-dashboard"
+
+- name: Wait for Dashboard pod to be ready
+  command: kubectl -n {{ dashboard_namespace }} rollout status deployment/kubernetes-dashboard
+  register: rollout_result
+  changed_when: rollout_result.rc == 0
+  vars:
+    dashboard_namespace: "kubernetes-dashboard"
+
+- name: Create Dashboard ingress resource
+  copy:
+    dest: /tmp/dashboard-ingress.yaml
+    content: |
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: dashboard-ingress
+        namespace: kubernetes-dashboard
+        annotations:
+          nginx.ingress.kubernetes.io/rewrite-target: /
+          nginx.ingress.kubernetes.io/ssl-redirect: "false"
+      spec:
+        ingressClassName: nginx
+        rules:
+        - host: dashboard.local
+          http:
+            paths:
+            - path: /
+              pathType: Prefix
+              backend:
+                service:
+                  name: kubernetes-dashboard
+                  port:
+                    number: 443
+
+- name: Apply Dashboard ingress
+  command: kubectl apply -f /tmp/dashboard-ingress.yaml
+  register: dashboard_ingress_apply
+  changed_when: dashboard_ingress_apply.rc == 0
+
+- name: Get server public IP
+  command: curl -s ifconfig.me
+  register: public_ip
+  changed_when: false
+  ignore_errors: true
+
+- name: Print Dashboard access instructions
+  debug:
+    msg: |
+      Kubernetes Dashboard is installed!
+
+      ========================================
+      ACCESS OPTIONS
+      ========================================
+      
+      Option 1 - Direct NodePort (temporary):
+      URL: https://{{ public_ip.stdout | default(ansible_host) }}:{{ dashboard_nodeport }}
+      
+      Option 2 - Through Ingress (recommended):
+      URL: http://{{ public_ip.stdout | default(ansible_host) }}:30080/dashboard (or dashboard.local:30080)
+      
+      ========================================
+      TOKEN GENERATION
+      ========================================
+      
+      To generate a login token, run:
+      ssh -i ~/.ssh/id_rsa_jenkins khushal@{{ ansible_host }} "kubectl -n kubernetes-dashboard create token admin-user --duration=8760h"
+      
+      Note: You may get a browser warning due to self-signed certs. Proceed to the site anyway.
+      
+      ========================================
+      NEXT STEPS
+      ========================================
+      
+      1. Access via Ingress Controller for better security
+      2. No firewall rules needed - handled by Ingress
+      
+      Docs: https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard/
+  vars:
+    dashboard_nodeport: 31000 
