@@ -57,18 +57,6 @@
       register: grafana_ready
       changed_when: grafana_ready.rc == 0
 
-    - name: Allow monitoring ports through firewall
-      ufw:
-        rule: allow
-        port: "{{ item }}"
-        proto: tcp
-      register: firewall_result
-      changed_when: firewall_result.changed
-      loop:
-        - "{{ grafana_nodeport }}"
-        - "{{ prometheus_nodeport }}"
-        - "32002"  # Node Exporter
-
     - name: Get server public IP
       command: curl -s ifconfig.me
       register: public_ip
@@ -82,25 +70,36 @@
           MONITORING STACK SETUP COMPLETE
           ========================================
           
-          Grafana Dashboard:
-          URL: http://{{ public_ip.stdout | default(ansible_host) }}:{{ grafana_nodeport }}
+          ========================================
+          ACCESS OPTIONS
+          ========================================
+          
+          Option 1 - Direct NodePort (temporary):
+          Grafana: http://{{ public_ip.stdout | default(ansible_host) }}:{{ grafana_nodeport }}
+          Prometheus: http://{{ public_ip.stdout | default(ansible_host) }}:{{ prometheus_nodeport }}
+          Node Exporter: http://{{ public_ip.stdout | default(ansible_host) }}:32002/metrics
+          
+          Option 2 - Through Ingress (recommended):
+          Create Ingress resources to access via:
+          Grafana: http://{{ public_ip.stdout | default(ansible_host) }}:30080/grafana
+          Prometheus: http://{{ public_ip.stdout | default(ansible_host) }}:30080/prometheus
+          
+          ========================================
+          CREDENTIALS
+          ========================================
+          
+          Grafana:
           Username: admin
           Password: {{ grafana_admin_password }}
-          
-          Prometheus:
-          URL: http://{{ public_ip.stdout | default(ansible_host) }}:{{ prometheus_nodeport }}
-          
-          Node Exporter (Server Metrics):
-          URL: http://{{ public_ip.stdout | default(ansible_host) }}:32002/metrics
           
           ========================================
           NEXT STEPS
           ========================================
           
-          1. Access Grafana and log in
-          2. Import dashboards for:
+          1. Create Ingress resources for Grafana and Prometheus
+          2. Access via Ingress Controller for better security
+          3. Import dashboards in Grafana for:
              - Node Exporter (server metrics)
              - Kubernetes cluster metrics
-          3. Configure alerts if needed
-          
-          Firewall rules for ports {{ grafana_nodeport }}, {{ prometheus_nodeport }}, and 32002 have been added. 
+          4. Configure alerts if needed
+          5. No firewall rules needed - handled by Ingress 

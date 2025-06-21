@@ -24,16 +24,10 @@
       command: kubectl delete namespace {{ dashboard_namespace }}
       ignore_errors: true
 
-    - name: Remove NodePort from firewall
-      ufw:
-        rule: allow
-        port: "{{ dashboard_nodeport }}"
-        proto: tcp
-        delete: yes
-      register: firewall_cleanup
-      changed_when: firewall_cleanup.changed
-      ignore_errors: true
-
     - name: Print cleanup completion
       debug:
-        msg: "Kubernetes Dashboard and related resources have been removed." 
+        msg: |
+          Kubernetes Dashboard and related resources have been removed.
+          
+          Note: Firewall rules are now managed by the Ingress Controller.
+          No individual NodePort firewall rules needed. 

@@ -40,14 +40,6 @@
       register: rollout_result
       changed_when: rollout_result.rc == 0
 
-    - name: Allow NodePort through firewall
-      ufw:
-        rule: allow
-        port: "{{ dashboard_nodeport }}"
-        proto: tcp
-      register: firewall_result
-      changed_when: firewall_result.changed
-
     - name: Get server public IP
       command: curl -s ifconfig.me
       register: public_ip
@@ -57,15 +49,34 @@
     - name: Print Dashboard access instructions
       debug:
         msg: |
-          Kubernetes Dashboard is installed and exposed!
+          Kubernetes Dashboard is installed!
 
-          Access URL: https://{{ public_ip.stdout | default(ansible_host) }}:{{ dashboard_nodeport }}
-
+          ========================================
+          ACCESS OPTIONS
+          ========================================
+          
+          Option 1 - Direct NodePort (temporary):
+          URL: https://{{ public_ip.stdout | default(ansible_host) }}:{{ dashboard_nodeport }}
+          
+          Option 2 - Through Ingress (recommended):
+          Create an Ingress resource to access via:
+          http://{{ public_ip.stdout | default(ansible_host) }}:30080/dashboard
+          
+          ========================================
+          TOKEN GENERATION
+          ========================================
+          
           To generate a login token, run:
           ssh -i ~/.ssh/id_rsa_jenkins khushal@{{ ansible_host }} "kubectl -n kubernetes-dashboard create token admin-user --duration=8760h"
-
+          
           Note: You may get a browser warning due to self-signed certs. Proceed to the site anyway.
-
-          Docs: https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard/
-
-          Firewall rule for port {{ dashboard_nodeport }} has been added. 
+          
+          ========================================
+          NEXT STEPS
+          ========================================
+          
+          1. Create an Ingress resource for the dashboard
+          2. Access via Ingress Controller for better security
+          3. No firewall rules needed - handled by Ingress
+          
+          Docs: https://kubernetes.io/docs/tasks/access-application-cluster/web-ui-dashboard/ 

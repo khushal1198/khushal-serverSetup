@@ -27,18 +27,6 @@
       delay: 5
       changed_when: false
 
-    - name: Remove monitoring ports from firewall
-      ufw:
-        rule: deny
-        port: "{{ item }}"
-        proto: tcp
-      register: firewall_result
-      changed_when: firewall_result.changed
-      loop:
-        - "32000"  # Grafana
-        - "32001"  # Prometheus
-        - "32002"  # Node Exporter
-
     - name: Print cleanup completion
       debug:
         msg: |
@@ -49,4 +37,6 @@
           - Grafana
           - Node Exporter
           - All monitoring resources
-          - Firewall rules for monitoring ports 
+          
+          Note: Firewall rules are now managed by the Ingress Controller.
+          No individual NodePort firewall rules needed. 
