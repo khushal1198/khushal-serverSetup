@@ -45,10 +45,9 @@
       spec:
         ingressClassName: nginx
         rules:
-        - host: jenkins.local
-          http:
+        - http:
             paths:
-            - path: /
+            - path: /jenkins
               pathType: Prefix
               backend:
                 service:

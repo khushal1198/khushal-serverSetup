@@ -45,10 +45,9 @@
       spec:
         ingressClassName: nginx
         rules:
-        - host: vault.local
-          http:
+        - http:
             paths:
-            - path: /
+            - path: /vault
               pathType: Prefix
               backend:
                 service:

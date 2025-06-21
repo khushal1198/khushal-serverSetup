@@ -56,10 +56,9 @@
       spec:
         ingressClassName: nginx
         rules:
-        - host: grafana.local
-          http:
+        - http:
             paths:
-            - path: /
+            - path: /grafana
               pathType: Prefix
               backend:
                 service:
@@ -81,10 +80,9 @@
       spec:
         ingressClassName: nginx
         rules:
-        - host: prometheus.local
-          http:
+        - http:
             paths:
-            - path: /
+            - path: /prometheus
               pathType: Prefix
               backend:
                 service:

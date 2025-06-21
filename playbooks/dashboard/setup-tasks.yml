@@ -57,10 +57,9 @@
       spec:
         ingressClassName: nginx
         rules:
-        - host: dashboard.local
-          http:
+        - http:
             paths:
-            - path: /
+            - path: /dashboard
               pathType: Prefix
               backend:
                 service:

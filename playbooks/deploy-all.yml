@@ -71,6 +71,13 @@
         group: "{{ ansible_user }}"
         mode: '0600'
 
+    - name: Fix k3s config permissions for kubectl access
+      file:
+        path: /etc/rancher/k3s/k3s.yaml
+        mode: '0644'
+        owner: root
+        group: root
+
     - name: Display k3s status
       debug:
         msg: "✅ k3s is running and accessible"
@@ -164,13 +171,15 @@
           ===================================
           
           🌐 Access URLs:
-          • Ingress Controller: http://{{ ansible_host }}:{{ ingress_http_port }}
+          • Ingress Controller: http://{{ ansible_host }}:30080
           
           📊 Services (via Ingress):
-          • ArgoCD: http://{{ ansible_host }}:{{ ingress_http_port }}/argocd
-          • Grafana: http://{{ ansible_host }}:{{ ingress_http_port }}/grafana
-          • Prometheus: http://{{ ansible_host }}:{{ ingress_http_port }}/prometheus
-          • Kubernetes Dashboard: http://{{ ansible_host }}:{{ ingress_http_port }}/dashboard
+          • ArgoCD: http://{{ ansible_host }}:30080/argocd
+          • Grafana: http://{{ ansible_host }}:30080/grafana
+          • Prometheus: http://{{ ansible_host }}:30080/prometheus
+          • Kubernetes Dashboard: http://{{ ansible_host }}:30080/dashboard
+          • Jenkins: http://{{ ansible_host }}:30080/jenkins
+          • Vault: http://{{ ansible_host }}:30080/vault
           
           🔐 Direct Access (if needed):
           • Jenkins: http://{{ ansible_host }}:30000
