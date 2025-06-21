@@ -49,11 +49,14 @@ After deployment, access your services at:
 - **ArgoCD**: `http://100.110.142.150:30080/argocd`
 - **Grafana**: `http://100.110.142.150:30080/grafana`
 - **Prometheus**: `http://100.110.142.150:30080/prometheus`
-- **Kubernetes Dashboard**: `http://100.110.142.150:30080/dashboard`
 
-### Direct Access (Fallback)
+### Direct Access (NodePort)
+- **Kubernetes Dashboard**: `https://100.110.142.150:31000` *(Note: Uses HTTPS with self-signed cert)*
 - **Jenkins**: `http://100.110.142.150:30000`
 - **Vault**: `http://100.110.142.150:30201`
+
+### Dashboard Access Note
+The Kubernetes Dashboard is served directly via NodePort (port 31000) because it doesn't support subpath routing through ingress controllers. You'll need to accept the self-signed certificate warning in your browser.
 
 ---
 
@@ -83,8 +86,9 @@ Each component has a corresponding cleanup playbook: `playbooks/<component>/clea
 **Minimal Exposure**: Only essential ports are exposed:
 - **22**: SSH access
 - **30080/30443**: Nginx Ingress Controller (HTTP/HTTPS)
+- **31000**: Kubernetes Dashboard (HTTPS)
 
-**All services** are accessed through the Ingress Controller, eliminating the need for individual NodePort firewall rules.
+**Most services** are accessed through the Ingress Controller, eliminating the need for individual NodePort firewall rules. The Kubernetes Dashboard is an exception due to subpath routing limitations.
 
 ### Benefits
 ✅ **Smaller Attack Surface**: Only 3 ports exposed instead of many NodePorts  
