@@ -1,7 +1,7 @@
 # HashiCorp Vault Playbooks
 
 ## Setup
-- `setup.yml`: Installs HashiCorp Vault on your Kubernetes cluster using the vault_k8s role.
+- `setup.yml`: Installs HashiCorp Vault on your Kubernetes cluster using Helm.
 
 ## Cleanup
 - `cleanup.yml`: Removes Vault and all its resources from your cluster.
@@ -10,35 +10,59 @@
 
 ## Accessing Vault After Installation
 
-### 1. Get the Vault NodePort
-```bash
-kubectl -n vault-system get svc vault-ui -o jsonpath='{.spec.ports[0].nodePort}'
-```
-- Open: `http://<your-server-ip>:<NodePort>`
+### Access Information
+- **UI**: `http://100.110.142.150:30201`
+- **NodePort**: 30201
+- **Namespace**: vault
 
-### 2. Initialize Vault (if not already done)
-```bash
-kubectl -n vault-system exec -it vault-0 -- vault operator init
-```
-- This will generate 5 unseal keys and a root token.
-- **IMPORTANT:** Save these securely!
+### Important Note
+Vault is served via NodePort (port 30201) following HashiCorp's official recommendation to avoid subpath routing issues with ingress controllers. HashiCorp does not recommend hosting Vault behind a subpath like `/vault` as it breaks the UI and API due to absolute path generation in Vault's frontend.
 
-### 3. Unseal Vault
+### 1. Access Vault UI
+- Open: `http://100.110.142.150:30201`
+- You'll be redirected to: `http://100.110.142.150:30201/ui/`
+
+### 2. Login to Vault
+- **Username**: (leave blank)
+- **Password**: `root` (dev mode root token)
+
+### 3. Verify Vault Status
 ```bash
-kubectl -n vault-system exec -it vault-0 -- vault operator unseal <unseal-key-1>
-kubectl -n vault-system exec -it vault-0 -- vault operator unseal <unseal-key-2>
-kubectl -n vault-system exec -it vault-0 -- vault operator unseal <unseal-key-3>
+# Check if Vault pod is running
+kubectl get pods -n vault
+
+# Check Vault service
+kubectl get svc -n vault
+
+# Get Vault logs
+kubectl logs -n vault vault-0
 ```
 
-### 4. Login to Vault
-- Use the root token from step 2 to login via the UI or CLI.
+---
+
+## Configuration Details
+
+### Dev Mode Setup
+- Vault is configured in dev mode for testing
+- Root token is pre-set to "root"
+- No unsealing required
+- Data is not persisted (will be lost on pod restart)
+
+### Production Considerations
+- Use production mode with proper storage backend
+- Configure auto-unseal for high availability
+- Set up proper authentication methods
+- Enable audit logging
+- Use TLS/HTTPS in production
 
 ---
 
 ## Security Notes
-- Store the unseal keys and root token securely
+- Dev mode is for testing only - not for production use
+- Store the root token securely
 - Consider using auto-unseal for production environments
 - Rotate keys regularly
+- Enable audit logging in production
 
 ---
 

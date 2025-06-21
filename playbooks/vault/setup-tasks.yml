@@ -31,35 +31,18 @@
   register: vault_ready
   changed_when: vault_ready.rc == 0
 
-- name: Create Vault ingress resource
-  copy:
-    dest: /tmp/vault-ingress.yaml
-    content: |
-      apiVersion: networking.k8s.io/v1
-      kind: Ingress
-      metadata:
-        name: vault-ingress
-        namespace: vault
-        annotations:
-          nginx.ingress.kubernetes.io/rewrite-target: /$2
-          nginx.ingress.kubernetes.io/use-regex: "true"
-      spec:
-        ingressClassName: nginx
-        rules:
-        - http:
-            paths:
-            - path: /vault(/|$)(.*)
-              pathType: ImplementationSpecific
-              backend:
-                service:
-                  name: vault
-                  port:
-                    number: 8200
+- name: Force Vault server to use subpath routing via container args
+  command: >
+    kubectl -n vault patch statefulset vault
+    --type=json
+    -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/args", "value": ["/usr/local/bin/docker-entrypoint.sh vault server -dev -ui"]}]'
+  register: vault_force_args
+  changed_when: vault_force_args.rc == 0
 
-- name: Apply Vault ingress
-  command: kubectl apply -f /tmp/vault-ingress.yaml
-  register: vault_ingress_apply
-  changed_when: vault_ingress_apply.rc == 0
+- name: Wait for Vault pod to be ready after configuration changes
+  command: kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=vault -n vault --timeout=300s
+  register: vault_ready_after_config
+  changed_when: vault_ready_after_config.rc == 0
 
 - name: Get server public IP
   command: curl -s ifconfig.me
@@ -75,14 +58,13 @@
       ========================================
       
       ========================================
-      ACCESS OPTIONS
+      ACCESS INFORMATION
       ========================================
       
-      Option 1 - Direct NodePort (temporary):
       Vault UI: http://{{ public_ip.stdout | default(ansible_host) }}:30201
       
-      Option 2 - Through Ingress (recommended):
-      Vault UI: http://{{ public_ip.stdout | default(ansible_host) }}:30080/vault (or vault.local:30080)
+      Note: Vault is served via NodePort (port 30201) following HashiCorp's 
+      recommendation to avoid subpath routing issues with ingress controllers.
       
       ========================================
       CREDENTIALS
@@ -94,8 +76,7 @@
       NEXT STEPS
       ========================================
       
-      1. Access Vault UI and initialize if needed
-      2. Configure authentication methods
-      3. Create secrets and policies
-      4. Access via Ingress Controller for better security
-      5. No firewall rules needed - handled by Ingress 
+      1. Access Vault UI: http://{{ public_ip.stdout | default(ansible_host) }}:30201
+      2. Login with root token: root
+      3. Configure authentication methods
+      4. Create secrets and policies 
