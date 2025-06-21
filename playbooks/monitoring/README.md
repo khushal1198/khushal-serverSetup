@@ -1,49 +1,78 @@
 # Monitoring Stack Playbooks
 
 ## Setup
-- `setup.yml`: Installs Prometheus, Grafana, and AlertManager on your Kubernetes cluster using the monitoring_k8s role.
+- `setup.yml`: Installs Prometheus, Grafana, and Node Exporter on your Kubernetes cluster using Helm.
 
 ## Cleanup
 - `cleanup.yml`: Removes the monitoring stack and all its resources from your cluster.
 
 ---
 
-## Accessing Monitoring Services After Installation
+## Accessing Monitoring Services
 
-### 1. Prometheus
-```bash
-kubectl -n monitoring get svc prometheus-kube-prometheus-prometheus -o jsonpath='{.spec.ports[0].nodePort}'
-```
-- Open: `http://<your-server-ip>:<NodePort>`
+### 1. Grafana Dashboard
+- **URL**: `http://<your-server-ip>:32000`
+- **Username**: `admin`
+- **Password**: `admin123` (change this in setup.yml)
 
-### 2. Grafana
-```bash
-kubectl -n monitoring get svc prometheus-grafana -o jsonpath='{.spec.ports[0].nodePort}'
-```
-- Open: `http://<your-server-ip>:<NodePort>`
-- **Default credentials:**
-  - Username: `admin`
-  - Password: `admin`
+### 2. Prometheus
+- **URL**: `http://<your-server-ip>:32001`
 
-### 3. AlertManager
-```bash
-kubectl -n monitoring get svc prometheus-kube-prometheus-alertmanager -o jsonpath='{.spec.ports[0].nodePort}'
-```
-- Open: `http://<your-server-ip>:<NodePort>`
+### 3. Node Exporter (Server Metrics)
+- **URL**: `http://<your-server-ip>:32002/metrics`
 
 ---
 
-## Default Ports (as configured in main README)
-- **Prometheus:** `http://<server-ip>:30300`
-- **Grafana:** `http://<server-ip>:30301` (admin/admin)
-- **AlertManager:** `http://<server-ip>:30302`
+## Setup Instructions
+
+1. **Run the setup playbook:**
+   ```bash
+   ansible-playbook -i inventory/hosts playbooks/monitoring/setup.yml
+   ```
+
+2. **Access Grafana and import dashboards:**
+   - Go to `http://<server-ip>:32000`
+   - Login with admin/admin123
+   - Import these dashboard IDs:
+     - **Node Exporter**: `1860` (server metrics)
+     - **Kubernetes Cluster**: `315` (cluster overview)
+     - **Kubernetes Pods**: `6417` (pod metrics)
+
+---
+
+## What's Included
+
+### Monitoring Components:
+- **Prometheus**: Time-series database for metrics
+- **Grafana**: Visualization and dashboard platform
+- **Node Exporter**: Server hardware and OS metrics
+- **kube-state-metrics**: Kubernetes cluster metrics
+- **AlertManager**: Alerting (configured but not exposed)
+
+### Metrics Collected:
+- **Server Resources**: CPU, memory, disk, network
+- **Kubernetes**: Pods, services, nodes, deployments
+- **Applications**: Your hello_grpc service metrics
+
+### Ports:
+- **Grafana**: 32000
+- **Prometheus**: 32001  
+- **Node Exporter**: 32002
 
 ---
 
 ## Getting Grafana Admin Password
-If the default password doesn't work:
+If you need to retrieve the admin password:
 ```bash
-kubectl -n monitoring get secret prometheus-grafana -o jsonpath='{.data.admin-password}' | base64 -d; echo
+ssh -i ~/.ssh/id_rsa_jenkins khushal@100.110.142.150 "kubectl -n monitoring get secret prometheus-grafana -o jsonpath='{.data.admin-password}' | base64 -d"
+```
+
+---
+
+## Cleanup
+To remove the monitoring stack:
+```bash
+ansible-playbook -i inventory/hosts playbooks/monitoring/cleanup.yml
 ```
 
 ---

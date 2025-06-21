@@ -2,6 +2,40 @@
 
 This repository contains Ansible playbooks and roles for setting up and managing server configurations, including Jenkins and HashiCorp Vault on Kubernetes.
 
+## Firewall Configuration (UFW)
+
+The server has UFW (Uncomplicated Firewall) enabled by default for security. When setting up new services, you may need to allow specific ports.
+
+### Managing UFW Rules
+
+**Check current rules:**
+```bash
+ssh -i ~/.ssh/id_rsa_jenkins khushal@100.110.142.150 "sudo ufw status"
+```
+
+**Allow a port:**
+```bash
+ssh -i ~/.ssh/id_rsa_jenkins khushal@100.110.142.150 "sudo ufw allow <port>/tcp"
+```
+
+**Remove a rule:**
+```bash
+ssh -i ~/.ssh/id_rsa_jenkins khushal@100.110.142.150 "sudo ufw delete allow <port>/tcp"
+```
+
+**Disable UFW (not recommended):**
+```bash
+ssh -i ~/.ssh/id_rsa_jenkins khushal@100.110.142.150 "sudo ufw disable"
+```
+
+### Current Ports Allowed
+- **22**: SSH access
+- **80/443**: HTTP/HTTPS
+- **31000**: Kubernetes Dashboard
+- **32000-32002**: Monitoring stack (Grafana, Prometheus, Node Exporter)
+
+---
+
 ## Jenkins Setup
 
 ### Installation

@@ -1,6 +1,106 @@
 ---
-- name: Setup Monitoring Stack on Kubernetes
+- name: Setup Monitoring Stack (Prometheus + Grafana)
   hosts: servers
   become: yes
-  roles:
-    - monitoring_k8s 
+  vars:
+    monitoring_namespace: "monitoring"
+    grafana_admin_password: "admin123"  # Change this!
+    grafana_nodeport: 32000
+    prometheus_nodeport: 32001
+  environment:
+    KUBECONFIG: "/etc/rancher/k3s/k3s.yaml"
+  tasks:
+    - name: Create monitoring namespace
+      command: kubectl create namespace {{ monitoring_namespace }}
+      register: namespace_result
+      changed_when: namespace_result.rc == 0
+      ignore_errors: true
+
+    - name: Add Prometheus Helm repository
+      command: helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+      register: helm_repo_add
+      changed_when: helm_repo_add.rc == 0
+
+    - name: Update Helm repositories
+      command: helm repo update
+      register: helm_update
+      changed_when: helm_update.rc == 0
+
+    - name: Install Prometheus with Node Exporter
+      command: >
+        helm install prometheus prometheus-community/kube-prometheus-stack 
+        --namespace {{ monitoring_namespace }} 
+        --create-namespace 
+        --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false
+        --set prometheus.prometheusSpec.podMonitorSelectorNilUsesHelmValues=false
+        --set prometheus.prometheusSpec.ruleSelectorNilUsesHelmValues=false
+        --set prometheus.prometheusSpec.probeSelectorNilUsesHelmValues=false
+        --set grafana.enabled=true
+        --set grafana.adminPassword={{ grafana_admin_password }}
+        --set grafana.service.type=NodePort
+        --set grafana.service.nodePort={{ grafana_nodeport }}
+        --set prometheus.service.type=NodePort
+        --set prometheus.service.nodePort={{ prometheus_nodeport }}
+        --set prometheus.nodeExporter.enabled=true
+        --set prometheus.nodeExporter.service.type=NodePort
+        --set prometheus.nodeExporter.service.nodePort=32002
+      register: prometheus_install
+      changed_when: prometheus_install.rc == 0
+
+    - name: Wait for Prometheus pods to be ready
+      command: kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=prometheus -n {{ monitoring_namespace }} --timeout=300s
+      register: prometheus_ready
+      changed_when: prometheus_ready.rc == 0
+
+    - name: Wait for Grafana pod to be ready
+      command: kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=grafana -n {{ monitoring_namespace }} --timeout=300s
+      register: grafana_ready
+      changed_when: grafana_ready.rc == 0
+
+    - name: Allow monitoring ports through firewall
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      register: firewall_result
+      changed_when: firewall_result.changed
+      loop:
+        - "{{ grafana_nodeport }}"
+        - "{{ prometheus_nodeport }}"
+        - "32002"  # Node Exporter
+
+    - name: Get server public IP
+      command: curl -s ifconfig.me
+      register: public_ip
+      changed_when: false
+      ignore_errors: true
+
+    - name: Print monitoring access instructions
+      debug:
+        msg: |
+          ========================================
+          MONITORING STACK SETUP COMPLETE
+          ========================================
+          
+          Grafana Dashboard:
+          URL: http://{{ public_ip.stdout | default(ansible_host) }}:{{ grafana_nodeport }}
+          Username: admin
+          Password: {{ grafana_admin_password }}
+          
+          Prometheus:
+          URL: http://{{ public_ip.stdout | default(ansible_host) }}:{{ prometheus_nodeport }}
+          
+          Node Exporter (Server Metrics):
+          URL: http://{{ public_ip.stdout | default(ansible_host) }}:32002/metrics
+          
+          ========================================
+          NEXT STEPS
+          ========================================
+          
+          1. Access Grafana and log in
+          2. Import dashboards for:
+             - Node Exporter (server metrics)
+             - Kubernetes cluster metrics
+          3. Configure alerts if needed
+          
+          Firewall rules for ports {{ grafana_nodeport }}, {{ prometheus_nodeport }}, and 32002 have been added. 

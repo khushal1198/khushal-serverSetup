@@ -2,36 +2,51 @@
 - name: Cleanup Monitoring Stack
   hosts: servers
   become: yes
+  vars:
+    monitoring_namespace: "monitoring"
+  environment:
+    KUBECONFIG: "/etc/rancher/k3s/k3s.yaml"
   tasks:
     - name: Uninstall kube-prometheus-stack
-      community.kubernetes.helm:
-        name: prometheus
-        state: absent
-        release_namespace: monitoring
-      environment:
-        KUBECONFIG: "/home/{{ ansible_user }}/k3s.yaml"
+      command: helm uninstall prometheus -n {{ monitoring_namespace }}
+      register: helm_uninstall
+      changed_when: helm_uninstall.rc == 0
+      ignore_errors: true
 
     - name: Delete monitoring namespace
-      community.kubernetes.k8s:
-        name: monitoring
-        api_version: v1
-        kind: Namespace
-        state: absent
-      environment:
-        KUBECONFIG: "/home/{{ ansible_user }}/k3s.yaml"
+      command: kubectl delete namespace {{ monitoring_namespace }}
+      register: namespace_delete
+      changed_when: namespace_delete.rc == 0
+      ignore_errors: true
 
     - name: Wait for namespace to be deleted
-      community.kubernetes.k8s_info:
-        kind: Namespace
-        name: monitoring
-      register: namespace
-      until: namespace.resources | length == 0
+      command: kubectl get namespace {{ monitoring_namespace }}
+      register: namespace_check
+      until: namespace_check.rc != 0
       retries: 30
       delay: 5
-      environment:
-        KUBECONFIG: "/home/{{ ansible_user }}/k3s.yaml"
+      changed_when: false
 
-    - name: Remove monitoring values file
-      file:
-        path: "/home/{{ ansible_user }}/monitoring-values.yaml"
-        state: absent 
+    - name: Remove monitoring ports from firewall
+      ufw:
+        rule: deny
+        port: "{{ item }}"
+        proto: tcp
+      register: firewall_result
+      changed_when: firewall_result.changed
+      loop:
+        - "32000"  # Grafana
+        - "32001"  # Prometheus
+        - "32002"  # Node Exporter
+
+    - name: Print cleanup completion
+      debug:
+        msg: |
+          Monitoring stack has been removed.
+          
+          Removed:
+          - Prometheus
+          - Grafana
+          - Node Exporter
+          - All monitoring resources
+          - Firewall rules for monitoring ports 
