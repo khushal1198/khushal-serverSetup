@@ -5,10 +5,10 @@
   vars:
     # Update these variables with your actual repository details
     app_name: "hello-grpc"
-    repo_url: "https://github.com/khushal1198/hello_grpc"
-    repo_path: "k8s"  # Path to your Kubernetes manifests in the repo
+    repo_url: "https://github.com/khushal1198/khushal-k8s-manifests"
+    repo_path: "hello-grpc"  # Path to your Kubernetes manifests in the repo
     target_namespace: "default"
-    target_revision: "master"  # Branch to track
+    target_revision: "main"  # Branch to track
   tasks:
     - name: Create ArgoCD Application manifest
       copy:
