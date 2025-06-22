@@ -64,17 +64,5 @@
 ## Getting Grafana Admin Password
 If you need to retrieve the admin password:
 ```bash
-ssh -i ~/.ssh/id_rsa_jenkins khushal@100.110.142.150 "kubectl -n monitoring get secret prometheus-grafana -o jsonpath='{.data.admin-password}' | base64 -d"
+ssh -i ~/.ssh/id_rsa_jenkins khushal@<HOST> "kubectl -n monitoring get secret prometheus-grafana -o jsonpath='{.data.admin-password}' | base64 -d"
 ```
-
----
-
-## Cleanup
-To remove the monitoring stack:
-```bash
-ansible-playbook -i inventory/hosts playbooks/monitoring/cleanup.yml
-```
-
----
-
-For more details, see the [Prometheus Operator documentation](https://github.com/prometheus-operator/kube-prometheus). 

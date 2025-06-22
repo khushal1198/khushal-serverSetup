@@ -46,14 +46,16 @@ The deployment follows this logical order to ensure dependencies are met:
 After deployment, access your services at:
 
 ### Via Ingress Controller (Recommended)
-- **ArgoCD**: `http://100.110.142.150:30080/argocd`
-- **Grafana**: `http://100.110.142.150:30080/grafana`
-- **Prometheus**: `http://100.110.142.150:30080/prometheus`
+- **ArgoCD**: `http://<HOST>:30080/argocd`
+- **Grafana**: `http://<HOST>:30080/grafana`
+- **Prometheus**: `http://<HOST>:30080/prometheus`
+- **Kubernetes Dashboard**: `http://<HOST>:30080/dashboard`
+- **Jenkins**: `http://<HOST>:30080/jenkins/`
 
 ### Direct Access (NodePort)
-- **Kubernetes Dashboard**: `https://100.110.142.150:31000` *(Note: Uses HTTPS with self-signed cert)*
-- **Jenkins**: `http://100.110.142.150:30000`
-- **Vault**: `http://100.110.142.150:30201`
+- **Kubernetes Dashboard**: `https://<HOST>:31000` *(Note: Uses HTTPS with self-signed cert)*
+- **Jenkins**: `http://<HOST>:30000`
+- **Vault**: `http://<HOST>:30201`
 
 ### Dashboard Access Note
 The Kubernetes Dashboard is served directly via NodePort (port 31000) because it doesn't support subpath routing through ingress controllers. You'll need to accept the self-signed certificate warning in your browser.
@@ -100,13 +102,13 @@ Each component has a corresponding cleanup playbook: `playbooks/<component>/clea
 ### Managing UFW Rules
 ```bash
 # Check current rules
-ssh -i ~/.ssh/id_rsa_jenkins khushal@100.110.142.150 "sudo ufw status"
+ssh -i ~/.ssh/id_rsa_jenkins khushal@<HOST> "sudo ufw status"
 
 # Allow a port
-ssh -i ~/.ssh/id_rsa_jenkins khushal@100.110.142.150 "sudo ufw allow <port>/tcp"
+ssh -i ~/.ssh/id_rsa_jenkins khushal@<HOST> "sudo ufw allow <port>/tcp"
 
 # Remove a rule
-ssh -i ~/.ssh/id_rsa_jenkins khushal@100.110.142.150 "sudo ufw delete allow <port>/tcp"
+ssh -i ~/.ssh/id_rsa_jenkins khushal@<HOST> "sudo ufw delete allow <port>/tcp"
 ```
 
 ---
@@ -119,9 +121,9 @@ ssh -i ~/.ssh/id_rsa_jenkins khushal@100.110.142.150 "sudo ufw delete allow <por
 - **AlertManager**: Alert management
 
 ### Access
-- **Grafana**: `http://100.110.142.150:30080/grafana` (admin/admin)
-- **Prometheus**: `http://100.110.142.150:30080/prometheus`
-- **AlertManager**: `http://100.110.142.150:30302`
+- **Grafana**: `http://<HOST>:30080/grafana` (admin/admin)
+- **Prometheus**: `http://<HOST>:30080/prometheus`
+- **AlertManager**: `http://<HOST>:30302`
 
 ---
 
@@ -143,8 +145,8 @@ ansible-playbook -i inventory/hosts playbooks/argocd/application.yml
 ```
 
 ### Access
-- **UI**: `http://100.110.142.150:30080/argocd`
-- **CLI**: `argocd login 100.110.142.150:30080`
+- **UI**: `http://<HOST>:30080/argocd`
+- **CLI**: `argocd login <HOST>:30080`
 
 ---
 
@@ -162,7 +164,7 @@ ansible-playbook -i inventory/hosts playbooks/vault/setup.yml
 ```
 
 ### Access
-- **UI**: `http://100.110.142.150:30201`
+- **UI**: `http://<HOST>:30201`
 - **CLI**: `vault login`
 
 ---
@@ -181,7 +183,7 @@ ansible-playbook -i inventory/hosts playbooks/jenkins/setup.yml
 ```
 
 ### Access
-- **UI**: `http://100.110.142.150:30000`
+- **UI**: `http://<HOST>:30000`
 
 ---
 
@@ -222,25 +224,25 @@ ansible-playbook -i inventory/hosts playbooks/jenkins/setup.yml
 ansible -i inventory/hosts servers -m ping
 
 # Check SSH access
-ssh -i ~/.ssh/id_rsa_jenkins khushal@100.110.142.150
+ssh -i ~/.ssh/id_rsa_jenkins khushal@<HOST>
 ```
 
 **Kubernetes Issues:**
 ```bash
 # Check k3s status
-ssh -i ~/.ssh/id_rsa_jenkins khushal@100.110.142.150 "sudo systemctl status k3s"
+ssh -i ~/.ssh/id_rsa_jenkins khushal@<HOST> "sudo systemctl status k3s"
 
 # Check pods
-ssh -i ~/.ssh/id_rsa_jenkins khushal@100.110.142.150 "kubectl get pods --all-namespaces"
+ssh -i ~/.ssh/id_rsa_jenkins khushal@<HOST> "kubectl get pods --all-namespaces"
 ```
 
 **Ingress Issues:**
 ```bash
 # Check ingress controller
-ssh -i ~/.ssh/id_rsa_jenkins khushal@100.110.142.150 "kubectl get pods -n ingress-nginx"
+ssh -i ~/.ssh/id_rsa_jenkins khushal@<HOST> "kubectl get pods -n ingress-nginx"
 
 # Check ingress resources
-ssh -i ~/.ssh/id_rsa_jenkins khushal@100.110.142.150 "kubectl get ingress --all-namespaces"
+ssh -i ~/.ssh/id_rsa_jenkins khushal@<HOST> "kubectl get ingress --all-namespaces"
 ```
 
 ### Logs
@@ -265,7 +267,7 @@ ansible-playbook -i inventory/hosts playbooks/deploy-all.yml
 ### Backup
 ```bash
 # Backup important data
-ssh -i ~/.ssh/id_rsa_jenkins khushal@100.110.142.150 "sudo tar -czf backup-$(date +%Y%m%d).tar.gz /var/lib/rancher/k3s"
+ssh -i ~/.ssh/id_rsa_jenkins khushal@<HOST> "sudo tar -czf backup-$(date +%Y%m%d).tar.gz /var/lib/rancher/k3s"
 ```
 
 ---

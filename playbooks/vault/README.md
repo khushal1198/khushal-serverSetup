@@ -11,7 +11,7 @@
 ## Accessing Vault After Installation
 
 ### Access Information
-- **UI**: `http://100.110.142.150:30201`
+- **UI**: `http://<HOST>:30201`
 - **NodePort**: 30201
 - **Namespace**: vault
 
@@ -19,8 +19,8 @@
 Vault is served via NodePort (port 30201) following HashiCorp's official recommendation to avoid subpath routing issues with ingress controllers. HashiCorp does not recommend hosting Vault behind a subpath like `/vault` as it breaks the UI and API due to absolute path generation in Vault's frontend.
 
 ### 1. Access Vault UI
-- Open: `http://100.110.142.150:30201`
-- You'll be redirected to: `http://100.110.142.150:30201/ui/`
+- Open: `http://<HOST>:30201`
+- You'll be redirected to: `http://<HOST>:30201/ui/`
 
 ### 2. Login to Vault
 - **Username**: (leave blank)

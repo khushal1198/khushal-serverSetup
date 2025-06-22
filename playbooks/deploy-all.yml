@@ -38,8 +38,8 @@
   become: yes
   environment:
     KUBECONFIG: "/etc/rancher/k3s/k3s.yaml"
-  tasks:
-    - include_tasks: jenkins/setup-tasks.yml
+  roles:
+    - jenkins_k8s
 
 - name: Final Validation and Summary
   hosts: servers
