@@ -83,6 +83,7 @@ controller:
     -Xmx1024m
     -XX:MaxRAM=2g
     -Dhudson.model.DirectoryBrowserSupport.CSP=""
+  jenkinsOpts: "--prefix=/jenkins"
   admin:
     username: admin
     password: admin123
@@ -98,12 +99,46 @@ controller:
     annotations: {}
     name: jenkins
   ingress:
-    enabled: false
+    enabled: true
+    ingressClassName: nginx
+    annotations: {}
+    paths:
+      - path: /jenkins
+        pathType: Prefix
+        backend:
+          service:
+            name: jenkins
+            port:
+              number: 8080
   persistence:
     enabled: true
     size: 10Gi
     storageClass: "local-path"
     accessMode: ReadWriteOnce
+  livenessProbe:
+    httpGet:
+      path: /jenkins/login
+      port: 8080
+    initialDelaySeconds: 120
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 10
+  readinessProbe:
+    httpGet:
+      path: /jenkins/login
+      port: 8080
+    initialDelaySeconds: 120
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 10
+  startupProbe:
+    httpGet:
+      path: /jenkins/login
+      port: 8080
+    initialDelaySeconds: 120
+    periodSeconds: 30
+    timeoutSeconds: 10
+    failureThreshold: 30
 
 rbac:
   create: true

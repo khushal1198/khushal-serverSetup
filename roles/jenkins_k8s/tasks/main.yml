@@ -78,4 +78,36 @@
   shell: |
     helm upgrade --install jenkins jenkins/jenkins -f /home/{{ ansible_user }}/jenkins-values.yaml -n jenkins
   environment:
-    KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml 
+    KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
+
+- name: Wait for Jenkins StatefulSet to be created
+  become: yes
+  shell: |
+    kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=jenkins -n jenkins --timeout=300s
+  environment:
+    KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
+  ignore_errors: yes
+
+- name: Patch Jenkins StatefulSet with correct probe paths
+  become: yes
+  shell: |
+    kubectl patch statefulset jenkins -n jenkins --type='json' -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/startupProbe/httpGet/path", "value": "/jenkins/login"}, {"op": "replace", "path": "/spec/template/spec/containers/0/livenessProbe/httpGet/path", "value": "/jenkins/login"}, {"op": "replace", "path": "/spec/template/spec/containers/0/readinessProbe/httpGet/path", "value": "/jenkins/login"}]'
+  environment:
+    KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
+  ignore_errors: yes
+
+- name: Delete Jenkins pod to force recreation with correct probes
+  become: yes
+  shell: |
+    kubectl delete pod jenkins-0 -n jenkins
+  environment:
+    KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
+  ignore_errors: yes
+
+- name: Wait for Jenkins pod to be fully ready after probe fix
+  become: yes
+  shell: |
+    kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=jenkins -n jenkins --timeout=300s
+  environment:
+    KUBECONFIG: /home/{{ ansible_user }}/k3s.yaml
+  ignore_errors: yes 
