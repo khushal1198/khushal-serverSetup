@@ -1,0 +1,36 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-schema-info
+  namespace: postgres
+spec:
+  template:
+    spec:
+      containers:
+      - name: postgres-schema-info
+        image: postgres:17
+        env:
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgresql
+              key: postgres-password
+        - name: POSTGRES_DB
+          value: "myapp"
+        command:
+        - /bin/bash
+        - /scripts/schema-info.sh
+        volumeMounts:
+        - name: backup-scripts
+          mountPath: /scripts
+        - name: backup-storage
+          mountPath: /backup
+      volumes:
+      - name: backup-scripts
+        configMap:
+          name: postgres-backup-scripts
+          defaultMode: 0755
+      - name: backup-storage
+        persistentVolumeClaim:
+          claimName: postgres-backup-pvc
+      restartPolicy: Never 

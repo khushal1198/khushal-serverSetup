@@ -35,6 +35,29 @@
     postgres_nodeport: 32543
     postgres_storage_size: "8Gi"
 
+- name: Wait for PostgreSQL pod to be ready (initial)
+  command: kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=postgresql -n postgres --timeout=300s
+  register: postgresql_initial_ready
+  changed_when: postgresql_initial_ready.rc == 0
+
+- name: Copy schema initialization script to server
+  copy:
+    src: schema-init.sql
+    dest: /tmp/postgres-schema-init.sql
+  register: schema_init_copy
+
+- name: Copy schema initialization script to PostgreSQL container
+  command: kubectl cp /tmp/postgres-schema-init.sql postgres/postgresql-0:/tmp/schema-init.sql
+  register: schema_copy_to_pod
+  changed_when: schema_copy_to_pod.rc == 0
+
+- name: Initialize production and testing schemas
+  command: >
+    kubectl exec -n postgres postgresql-0 -- bash -c 
+    "PGPASSWORD=admin123 psql -U postgres -d myapp -f /tmp/schema-init.sql"
+  register: schema_init
+  changed_when: schema_init.rc == 0
+
 - name: Copy backup storage PVC to server
   copy:
     src: backup-pvc.yaml
@@ -73,6 +96,24 @@
     src: restore-job.yaml
     dest: /tmp/postgres-restore-job.yaml
   register: restore_job_copy
+
+- name: Copy production restore job template to server
+  copy:
+    src: restore-prod-job.yaml
+    dest: /tmp/postgres-restore-prod-job.yaml
+  register: restore_prod_job_copy
+
+- name: Copy test restore job template to server
+  copy:
+    src: restore-test-job.yaml
+    dest: /tmp/postgres-restore-test-job.yaml
+  register: restore_test_job_copy
+
+- name: Copy schema info job template to server
+  copy:
+    src: schema-info-job.yaml
+    dest: /tmp/postgres-schema-info-job.yaml
+  register: schema_info_job_copy
 
 - name: Create pgAdmin deployment
   copy:
@@ -216,6 +257,16 @@
       ========================================
       
       ========================================
+      SCHEMA-BASED PROD/TEST ENVIRONMENT
+      ========================================
+      
+      ✅ Production Schema: prod.*
+      ✅ Testing Schema: test.*
+      ✅ Dedicated Users: prod_user, test_user
+      ✅ Sample Data: Users and Orders tables
+      ✅ Cross-schema Access: test_user can read prod data
+      
+      ========================================
       ACCESS OPTIONS
       ========================================
       
@@ -233,75 +284,109 @@
       - Port: 5432
       
       ========================================
-      CREDENTIALS
+      SCHEMA CREDENTIALS
       ========================================
       
-      pgAdmin:
+      pgAdmin (Admin Access):
       - Email: {{ pgadmin_email }}
       - Password: {{ pgadmin_password }}
       
-      PostgreSQL:
+      PostgreSQL Admin:
       - Username: postgres
       - Password: {{ postgres_password }}
       - Database: {{ postgres_database }}
       
+      Production Schema User:
+      - Username: prod_user
+      - Password: prod123
+      - Schema: prod
+      
+      Testing Schema User:
+      - Username: test_user  
+      - Password: test123
+      - Schema: test (can also read prod)
+      
       ========================================
-      AUTO-CONFIGURATION
+      SCHEMA COMMANDS
       ========================================
       
-      ✅ PostgreSQL server is automatically registered in pgAdmin!
-      - Server Name: "PostgreSQL Server"
-      - Connection: Pre-configured to connect to PostgreSQL
-      - Just login to pgAdmin and click on the server
+      # Connect to production schema:
+      psql -h {{ public_ip.stdout | default(ansible_host) }} -p {{ postgres_nodeport }} -U prod_user -d {{ postgres_database }}
+      
+      # Connect to test schema:
+      psql -h {{ public_ip.stdout | default(ansible_host) }} -p {{ postgres_nodeport }} -U test_user -d {{ postgres_database }}
+      
+      # Admin connection (access all schemas):
+      psql -h {{ public_ip.stdout | default(ansible_host) }} -p {{ postgres_nodeport }} -U postgres -d {{ postgres_database }}
+      
+      # Query production data:
+      SELECT * FROM prod.users;
+      SELECT * FROM prod.user_orders;
+      
+      # Query test data:
+      SELECT * FROM test.users;
+      SELECT * FROM test.user_orders;
+      
+      # Compare environments:
+      SELECT * FROM public.schema_info;
       
       ========================================
-      BACKUP SYSTEM
+      BACKUP SYSTEM (SCHEMA-AWARE)
       ========================================
       
       ✅ Automated backup system configured!
       - Schedule: Every 6 hours (0 */6 * * *)
       - Storage: 5GB dedicated backup PVC
-      - Retention: Last 10 backups kept
-      - Auto-restore: Restores from latest backup on startup
+      - Backups: Full, Production Schema, Test Schema
+      - Retention: Last 10 backups of each type
       
-      Backup Commands:
-      # Trigger manual backup:
+      Manual Backup Commands:
+      # Trigger full backup (all schemas):
       kubectl create job --from=cronjob/postgres-backup manual-backup-$(date +%s) -n postgres
       
-      # Manual restore:
-      kubectl apply -f /tmp/postgres-restore-job.yaml -n postgres
+      Manual Restore Commands:
+      # Restore full database:
+      kubectl apply -f /tmp/postgres-restore-job.yaml
       
-      # Check backup files:
-      kubectl exec -n postgres deployment/postgresql-0 -- ls -la /backup/
+      # Restore production schema only:
+      kubectl apply -f /tmp/postgres-restore-prod-job.yaml
       
-      ========================================
-      CONNECTION EXAMPLES
-      ========================================
+      # Restore test schema only:
+      kubectl apply -f /tmp/postgres-restore-test-job.yaml
       
-      psql command:
-      psql -h {{ public_ip.stdout | default(ansible_host) }} -p {{ postgres_nodeport }} -U postgres -d {{ postgres_database }}
-      
-      Connection string:
-      postgresql://postgres:{{ postgres_password }}@{{ public_ip.stdout | default(ansible_host) }}:{{ postgres_nodeport }}/{{ postgres_database }}
+      # View schema information:
+      kubectl apply -f /tmp/postgres-schema-info-job.yaml
+      kubectl logs -n postgres job/postgres-schema-info
       
       ========================================
-      MULTI-DEVICE ACCESS
+      TESTING UTILITIES
       ========================================
       
-      Access from any device on any network:
-      • pgAdmin: http://104.241.54.17:{{ pgadmin_nodeport }}
-      • No /etc/hosts setup required!
-      • Works on phones, tablets, other computers
+      # Copy production data to test (for testing):
+      psql -h {{ public_ip.stdout | default(ansible_host) }} -p {{ postgres_nodeport }} -U test_user -d {{ postgres_database }} -c "SELECT copy_prod_to_test();"
+      
+      # Reset test data:
+      psql -h {{ public_ip.stdout | default(ansible_host) }} -p {{ postgres_nodeport }} -U test_user -d {{ postgres_database }} -c "TRUNCATE test.orders, test.users CASCADE;"
+      
+      ========================================
+      PGADMIN SCHEMA ACCESS
+      ========================================
+      
+      In pgAdmin, you can access both schemas:
+      1. Login with admin@admin.com/admin123
+      2. Expand PostgreSQL Server > myapp > Schemas
+      3. You'll see: public, prod, test
+      4. Right-click on schema > "Query Tool" for schema-specific queries
       
       ========================================
       NEXT STEPS
       ========================================
       
-      1. Access pgAdmin on port {{ pgadmin_nodeport }} for database management
-      2. PostgreSQL server is already configured - just click to connect!
-      3. Create additional databases and users as needed
-      4. Backups run automatically every 6 hours
-      5. Set up monitoring (metrics are enabled)
+      1. Access pgAdmin to explore prod/test schemas
+      2. Connect with dedicated users for each environment
+      3. Use copy_prod_to_test() function for data synchronization
+      4. Set up automated testing workflows
+      5. Monitor both environments independently
       6. For production: change default passwords!
   vars:
     postgres_password: "admin123"

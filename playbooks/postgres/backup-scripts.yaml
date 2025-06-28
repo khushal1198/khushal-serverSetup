@@ -11,9 +11,11 @@ data:
     echo "Starting PostgreSQL backup at $(date)"
     
     # Create backup filename with timestamp
-    BACKUP_FILE="/backup/backup_$(date +%Y%m%d_%H%M%S).sql"
+    BACKUP_DATE=$(date +%Y%m%d_%H%M%S)
     
-    # Perform backup
+    # Full database backup
+    FULL_BACKUP_FILE="/backup/full_backup_${BACKUP_DATE}.sql"
+    echo "Creating full database backup..."
     PGPASSWORD="${POSTGRES_PASSWORD}" pg_dump \
       -h postgresql \
       -U postgres \
@@ -22,30 +24,86 @@ data:
       --clean \
       --if-exists \
       --no-owner \
-      --no-privileges > "${BACKUP_FILE}"
+      --no-privileges > "${FULL_BACKUP_FILE}"
     
-    # Create/update latest backup symlink
-    ln -sf "${BACKUP_FILE}" /backup/latest_backup.sql
+    # Production schema backup
+    PROD_BACKUP_FILE="/backup/prod_backup_${BACKUP_DATE}.sql"
+    echo "Creating production schema backup..."
+    PGPASSWORD="${POSTGRES_PASSWORD}" pg_dump \
+      -h postgresql \
+      -U postgres \
+      -d "${POSTGRES_DB}" \
+      --schema=prod \
+      --verbose \
+      --clean \
+      --if-exists \
+      --no-owner \
+      --no-privileges > "${PROD_BACKUP_FILE}"
     
-    # Clean up old backups (keep last 10)
+    # Test schema backup
+    TEST_BACKUP_FILE="/backup/test_backup_${BACKUP_DATE}.sql"
+    echo "Creating test schema backup..."
+    PGPASSWORD="${POSTGRES_PASSWORD}" pg_dump \
+      -h postgresql \
+      -U postgres \
+      -d "${POSTGRES_DB}" \
+      --schema=test \
+      --verbose \
+      --clean \
+      --if-exists \
+      --no-owner \
+      --no-privileges > "${TEST_BACKUP_FILE}"
+    
+    # Create/update latest backup symlinks
+    ln -sf "${FULL_BACKUP_FILE}" /backup/latest_backup.sql
+    ln -sf "${PROD_BACKUP_FILE}" /backup/latest_prod_backup.sql
+    ln -sf "${TEST_BACKUP_FILE}" /backup/latest_test_backup.sql
+    
+    # Clean up old backups (keep last 10 of each type)
     cd /backup
-    ls -t backup_*.sql | tail -n +11 | xargs -r rm -f
+    echo "Cleaning up old backups..."
+    ls -t full_backup_*.sql | tail -n +11 | xargs -r rm -f
+    ls -t prod_backup_*.sql | tail -n +11 | xargs -r rm -f
+    ls -t test_backup_*.sql | tail -n +11 | xargs -r rm -f
     
-    echo "Backup completed: ${BACKUP_FILE}"
-    echo "Backup size: $(du -h ${BACKUP_FILE} | cut -f1)"
+    echo "Backup completed:"
+    echo "  Full: ${FULL_BACKUP_FILE} ($(du -h ${FULL_BACKUP_FILE} | cut -f1))"
+    echo "  Prod: ${PROD_BACKUP_FILE} ($(du -h ${PROD_BACKUP_FILE} | cut -f1))"
+    echo "  Test: ${TEST_BACKUP_FILE} ($(du -h ${TEST_BACKUP_FILE} | cut -f1))"
     
   restore.sh: |
     #!/bin/bash
     set -e
     
-    if [ ! -f /backup/latest_backup.sql ]; then
-      echo "No backup file found at /backup/latest_backup.sql"
+    # Default to full restore unless SCHEMA_TARGET is specified
+    SCHEMA_TARGET=${SCHEMA_TARGET:-"full"}
+    
+    case "$SCHEMA_TARGET" in
+      "full")
+        BACKUP_FILE="/backup/latest_backup.sql"
+        echo "Restoring full database from backup: $BACKUP_FILE"
+        ;;
+      "prod")
+        BACKUP_FILE="/backup/latest_prod_backup.sql"
+        echo "Restoring production schema from backup: $BACKUP_FILE"
+        ;;
+      "test")
+        BACKUP_FILE="/backup/latest_test_backup.sql"
+        echo "Restoring test schema from backup: $BACKUP_FILE"
+        ;;
+      *)
+        echo "Invalid SCHEMA_TARGET: $SCHEMA_TARGET. Use 'full', 'prod', or 'test'"
+        exit 1
+        ;;
+    esac
+    
+    if [ ! -f "$BACKUP_FILE" ]; then
+      echo "No backup file found at $BACKUP_FILE"
       exit 0
     fi
     
-    echo "Restoring from backup: /backup/latest_backup.sql"
-    
     # Wait for PostgreSQL to be ready
+    echo "Waiting for PostgreSQL to be ready..."
     until PGPASSWORD="${POSTGRES_PASSWORD}" psql -h postgresql -U postgres -d postgres -c '\q'; do
       echo "Waiting for PostgreSQL to be ready..."
       sleep 2
@@ -55,10 +113,41 @@ data:
     PGPASSWORD="${POSTGRES_PASSWORD}" psql -h postgresql -U postgres -d postgres -c "CREATE DATABASE ${POSTGRES_DB};" || true
     
     # Restore backup
+    echo "Restoring from $BACKUP_FILE..."
     PGPASSWORD="${POSTGRES_PASSWORD}" psql \
       -h postgresql \
       -U postgres \
       -d "${POSTGRES_DB}" \
-      -f /backup/latest_backup.sql
+      -f "$BACKUP_FILE"
     
-    echo "Database restored successfully!" 
+    echo "Database restored successfully!"
+    echo "Restored: $SCHEMA_TARGET environment"
+    
+  schema-info.sh: |
+    #!/bin/bash
+    set -e
+    
+    echo "=== PostgreSQL Schema Information ==="
+    echo "Date: $(date)"
+    echo ""
+    
+    # Wait for PostgreSQL to be ready
+    until PGPASSWORD="${POSTGRES_PASSWORD}" psql -h postgresql -U postgres -d "${POSTGRES_DB}" -c '\q'; do
+      echo "Waiting for PostgreSQL to be ready..."
+      sleep 2
+    done
+    
+    echo "Schema Overview:"
+    PGPASSWORD="${POSTGRES_PASSWORD}" psql -h postgresql -U postgres -d "${POSTGRES_DB}" -c "SELECT * FROM public.schema_info;"
+    
+    echo ""
+    echo "Production Tables:"
+    PGPASSWORD="${POSTGRES_PASSWORD}" psql -h postgresql -U postgres -d "${POSTGRES_DB}" -c "\dt prod.*"
+    
+    echo ""
+    echo "Test Tables:"
+    PGPASSWORD="${POSTGRES_PASSWORD}" psql -h postgresql -U postgres -d "${POSTGRES_DB}" -c "\dt test.*"
+    
+    echo ""
+    echo "Available Backups:"
+    ls -la /backup/*backup*.sql 2>/dev/null || echo "No backups found" 

@@ -10,11 +10,23 @@
   changed_when: pgadmin_service_cleanup.rc == 0
   ignore_errors: true
 
-- name: Remove pgAdmin PVC
-  command: kubectl delete pvc pgadmin-pvc -n postgres
+- name: Remove pgAdmin PVC (normal deletion)
+  command: kubectl delete pvc pgadmin-pvc -n postgres --timeout=30s
   register: pgadmin_pvc_cleanup
   changed_when: pgadmin_pvc_cleanup.rc == 0
   ignore_errors: true
+
+- name: Check if pgAdmin PVC is stuck in terminating state
+  shell: kubectl get pvc pgadmin-pvc -n postgres -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound"
+  register: pgadmin_pvc_status
+  ignore_errors: true
+
+- name: Force remove pgAdmin PVC finalizers if stuck
+  command: kubectl patch pvc pgadmin-pvc -n postgres -p '{"metadata":{"finalizers":null}}'
+  register: pgadmin_pvc_finalizer_removal
+  changed_when: pgadmin_pvc_finalizer_removal.rc == 0
+  ignore_errors: true
+  when: pgadmin_pvc_status.stdout == "Terminating"
 
 - name: Remove pgAdmin servers ConfigMap
   command: kubectl delete configmap pgadmin-servers -n postgres
@@ -34,11 +46,30 @@
   changed_when: backup_scripts_cleanup.rc == 0
   ignore_errors: true
 
-- name: Remove backup storage PVC
-  command: kubectl delete pvc postgres-backup-pvc -n postgres
+- name: Remove backup storage PVC (normal deletion)
+  command: kubectl delete pvc postgres-backup-pvc -n postgres --timeout=30s
   register: backup_pvc_cleanup
   changed_when: backup_pvc_cleanup.rc == 0
   ignore_errors: true
+
+- name: Check if backup PVC is stuck in terminating state
+  shell: kubectl get pvc postgres-backup-pvc -n postgres -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound"
+  register: pvc_status
+  ignore_errors: true
+
+- name: Force remove backup PVC finalizers if stuck
+  command: kubectl patch pvc postgres-backup-pvc -n postgres -p '{"metadata":{"finalizers":null}}'
+  register: pvc_finalizer_removal
+  changed_when: pvc_finalizer_removal.rc == 0
+  ignore_errors: true
+  when: pvc_status.stdout == "Terminating"
+
+- name: Wait for backup PVC deletion to complete
+  command: kubectl wait --for=delete pvc/postgres-backup-pvc -n postgres --timeout=60s
+  register: pvc_wait_delete
+  changed_when: pvc_wait_delete.rc == 0
+  ignore_errors: true
+  when: pvc_status.stdout != "NotFound"
 
 - name: Remove any running backup/restore jobs
   command: kubectl delete jobs -l job-name=postgres-backup -n postgres
@@ -58,11 +89,23 @@
   changed_when: pods_cleanup.rc == 0
   ignore_errors: true
 
-- name: Remove PostgreSQL namespace
-  command: kubectl delete namespace postgres
+- name: Remove PostgreSQL namespace (normal deletion)
+  command: kubectl delete namespace postgres --timeout=60s
   register: namespace_cleanup
   changed_when: namespace_cleanup.rc == 0
   ignore_errors: true
+
+- name: Check if namespace is stuck in terminating state
+  shell: kubectl get namespace postgres -o jsonpath='{.status.phase}' 2>/dev/null || echo "NotFound"
+  register: namespace_status
+  ignore_errors: true
+
+- name: Force remove namespace finalizers if stuck
+  command: kubectl patch namespace postgres -p '{"metadata":{"finalizers":null}}'
+  register: namespace_finalizer_removal
+  changed_when: namespace_finalizer_removal.rc == 0
+  ignore_errors: true
+  when: namespace_status.stdout == "Terminating"
 
 - name: Remove temporary files
   file:
@@ -74,4 +117,8 @@
     - /tmp/postgres-backup-scripts.yaml
     - /tmp/postgres-backup-cronjob.yaml
     - /tmp/postgres-restore-job.yaml
+    - /tmp/postgres-restore-prod-job.yaml
+    - /tmp/postgres-restore-test-job.yaml
+    - /tmp/postgres-schema-info-job.yaml
+    - /tmp/postgres-schema-init.sql
   ignore_errors: true 
