@@ -58,7 +58,8 @@
       spec:
         ingressClassName: nginx
         rules:
-        - http:
+        - host: shivi.local
+          http:
             paths:
             - path: /dashboard(/|$)(.*)
               pathType: ImplementationSpecific
@@ -92,7 +93,14 @@
       URL: https://{{ public_ip.stdout | default(ansible_host) }}:{{ dashboard_nodeport }}
       
       Option 2 - Through Ingress (recommended):
-      URL: http://{{ public_ip.stdout | default(ansible_host) }}:30080/dashboard (or dashboard.local:30080)
+      URL: http://shivi.local:30080/dashboard
+      
+      ========================================
+      HOSTNAME SETUP
+      ========================================
+      
+      Add to your local /etc/hosts file:
+      {{ public_ip.stdout | default(ansible_host) }} shivi.local
       
       ========================================
       TOKEN GENERATION

@@ -61,7 +61,8 @@
       spec:
         ingressClassName: nginx
         rules:
-        - http:
+        - host: shivi.local
+          http:
             paths:
             - path: /grafana(/|$)(.*)
               pathType: ImplementationSpecific
@@ -87,7 +88,8 @@
       spec:
         ingressClassName: nginx
         rules:
-        - http:
+        - host: shivi.local
+          http:
             paths:
             - path: /prometheus(/|$)(.*)
               pathType: ImplementationSpecific
@@ -155,8 +157,15 @@
       Node Exporter: http://{{ public_ip.stdout | default(ansible_host) }}:32002/metrics
       
       Option 2 - Through Ingress (recommended):
-      Grafana: http://{{ public_ip.stdout | default(ansible_host) }}:30080/grafana (or grafana.local:30080)
-      Prometheus: http://{{ public_ip.stdout | default(ansible_host) }}:30080/prometheus (or prometheus.local:30080)
+      Grafana: http://shivi.local:30080/grafana
+      Prometheus: http://shivi.local:30080/prometheus
+      
+      ========================================
+      HOSTNAME SETUP
+      ========================================
+      
+      Add to your local /etc/hosts file:
+      {{ public_ip.stdout | default(ansible_host) }} shivi.local
       
       ========================================
       CREDENTIALS

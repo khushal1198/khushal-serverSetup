@@ -33,11 +33,12 @@ The deployment follows this logical order to ensure dependencies are met:
 1. **Basic Server Setup** - Packages, firewall, security
 2. **Nginx Ingress Controller** - External access layer
 3. **Monitoring Stack** - Prometheus & Grafana
-4. **Kubernetes Dashboard** - Cluster management UI
-5. **ArgoCD** - GitOps CI/CD
-6. **HashiCorp Vault** - Secrets management
-7. **Jenkins** - CI/CD pipelines
-8. **Ingress Resources** - Service routing
+4. **PostgreSQL & pgAdmin** - Database and administration
+5. **Kubernetes Dashboard** - Cluster management UI
+6. **ArgoCD** - GitOps CI/CD
+7. **HashiCorp Vault** - Secrets management
+8. **Jenkins** - CI/CD pipelines
+9. **Ingress Resources** - Service routing
 
 ---
 
@@ -46,19 +47,29 @@ The deployment follows this logical order to ensure dependencies are met:
 After deployment, access your services at:
 
 ### Via Ingress Controller (Recommended)
-- **ArgoCD**: `http://<HOST>:30080/argocd`
-- **Grafana**: `http://<HOST>:30080/grafana`
-- **Prometheus**: `http://<HOST>:30080/prometheus`
-- **Kubernetes Dashboard**: `http://<HOST>:30080/dashboard`
+- **ArgoCD**: `http://shivi.local:30080/argocd`
+- **Grafana**: `http://shivi.local:30080/grafana`
+- **Prometheus**: `http://shivi.local:30080/prometheus`
+- **Kubernetes Dashboard**: `http://shivi.local:30080/dashboard`
 - **Jenkins**: `http://<HOST>:30080/jenkins/`
+- **pgAdmin**: `http://shivi.local:30080/pgadmin`
 
 ### Direct Access (NodePort)
 - **Kubernetes Dashboard**: `https://<HOST>:31000` *(Note: Uses HTTPS with self-signed cert)*
 - **Jenkins**: `http://<HOST>:30000`
 - **Vault**: `http://<HOST>:30201`
+- **PostgreSQL**: `<HOST>:32543` *(Database connection)*
+- **pgAdmin**: `http://<HOST>:32544`
 
 ### Dashboard Access Note
 The Kubernetes Dashboard is served directly via NodePort (port 31000) because it doesn't support subpath routing through ingress controllers. You'll need to accept the self-signed certificate warning in your browser.
+
+### Hostname Configuration
+**Important**: To access services via `shivi.local`, add this entry to your local `/etc/hosts` file:
+```
+<SERVER_IP> shivi.local
+```
+Replace `<SERVER_IP>` with your actual server IP address.
 
 ---
 
@@ -72,6 +83,7 @@ The Kubernetes Dashboard is served directly via NodePort (port 31000) because it
 - `playbooks/setup.yml` - Basic server setup
 - `playbooks/ingress/setup.yml` - Nginx Ingress Controller
 - `playbooks/monitoring/setup.yml` - Prometheus & Grafana
+- `playbooks/postgres/setup.yml` - PostgreSQL & pgAdmin
 - `playbooks/dashboard/setup.yml` - Kubernetes Dashboard
 - `playbooks/argocd/setup.yml` - ArgoCD CI/CD
 - `playbooks/vault/setup.yml` - HashiCorp Vault
@@ -124,6 +136,35 @@ ssh -i ~/.ssh/id_rsa_jenkins khushal@<HOST> "sudo ufw delete allow <port>/tcp"
 - **Grafana**: `http://<HOST>:30080/grafana` (admin/admin)
 - **Prometheus**: `http://<HOST>:30080/prometheus`
 - **AlertManager**: `http://<HOST>:30302`
+
+---
+
+## 🗄️ PostgreSQL & pgAdmin
+
+### Components
+- **PostgreSQL**: Production-ready database server
+- **pgAdmin**: Web-based database administration tool
+- **Persistent Storage**: Data persistence across restarts
+- **Monitoring**: Built-in metrics for Prometheus
+
+### Access
+- **pgAdmin**: `http://shivi.local:30080/pgadmin` (admin@admin.com/admin123)
+- **PostgreSQL**: `<HOST>:32543` (postgres/admin123)
+- **Database**: `myapp`
+
+### Connection Examples
+```bash
+# psql command line
+psql -h <HOST> -p 32543 -U postgres -d myapp
+
+# Connection string
+postgresql://postgres:admin123@<HOST>:32543/myapp
+```
+
+### Setup
+```bash
+ansible-playbook -i inventory/hosts playbooks/postgres/setup.yml
+```
 
 ---
 
@@ -200,6 +241,7 @@ ansible-playbook -i inventory/hosts playbooks/jenkins/setup.yml
 │   ├── setup.yml               # Basic server setup
 │   ├── ingress/                # Nginx Ingress Controller
 │   ├── monitoring/             # Prometheus & Grafana
+│   ├── postgres/               # PostgreSQL & pgAdmin
 │   ├── dashboard/              # Kubernetes Dashboard
 │   ├── argocd/                 # ArgoCD CI/CD
 │   ├── vault/                  # HashiCorp Vault

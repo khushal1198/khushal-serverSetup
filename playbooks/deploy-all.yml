@@ -9,6 +9,14 @@
   tasks:
     - include_tasks: monitoring/setup-tasks.yml
 
+- name: Install PostgreSQL and pgAdmin
+  hosts: servers
+  become: yes
+  environment:
+    KUBECONFIG: "/etc/rancher/k3s/k3s.yaml"
+  tasks:
+    - include_tasks: postgres/setup-tasks.yml
+
 - name: Install Kubernetes Dashboard
   hosts: servers
   become: yes
@@ -61,22 +69,30 @@
           • Ingress Controller: http://{{ ansible_host }}:30080
           
           📊 Services (via Ingress):
-          • ArgoCD: http://{{ ansible_host }}:30080/argocd
-          • Grafana: http://{{ ansible_host }}:30080/grafana
-          • Prometheus: http://{{ ansible_host }}:30080/prometheus
-          • Kubernetes Dashboard: http://{{ ansible_host }}:30080/dashboard
+          • ArgoCD: http://shivi.local:30080/argocd
+          • Grafana: http://shivi.local:30080/grafana
+          • Prometheus: http://shivi.local:30080/prometheus
+          • Kubernetes Dashboard: http://shivi.local:30080/dashboard
           • Jenkins: http://{{ ansible_host }}:30080/jenkins
           • Vault: http://{{ ansible_host }}:30080/vault
+          • pgAdmin: http://shivi.local:30080/pgadmin
           
           🔐 Direct Access (if needed):
           • Jenkins: http://{{ ansible_host }}:30000
           • Vault: http://{{ ansible_host }}:30201
+          • PostgreSQL: {{ ansible_host }}:32543
+          • pgAdmin: http://{{ ansible_host }}:32544
+          
+          🏠 Hostname Setup:
+          Add to your local /etc/hosts file:
+          {{ ansible_host }} shivi.local
           
           📋 Next Steps:
           1. Access ArgoCD and configure your applications
           2. Set up monitoring alerts in Grafana
           3. Configure Vault for secrets management
           4. Set up Jenkins pipelines
+          5. Access pgAdmin to manage PostgreSQL databases
           
           🔧 Troubleshooting:
           • Check pod status: kubectl get pods --all-namespaces

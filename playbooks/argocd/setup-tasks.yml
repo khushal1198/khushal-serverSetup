@@ -43,7 +43,8 @@
       spec:
         ingressClassName: nginx
         rules:
-        - http:
+        - host: shivi.local
+          http:
             paths:
             - path: /argocd(/|$)(.*)
               pathType: ImplementationSpecific
@@ -76,12 +77,16 @@
       Access Information:
       - Namespace: argocd
       - NodePort: {{ argocd_nodeport.stdout }}
-      - Ingress: http://{{ ansible_host }}:30080/argocd
+      - Ingress: http://shivi.local:30080/argocd
+      
+      Hostname Setup:
+      Add to your local /etc/hosts file:
+      {{ ansible_host }} shivi.local
       
       To access ArgoCD UI:
       1. Get the admin password:
          kubectl -n argocd get secret argocd-secret -o jsonpath='{.data.admin\\.password}' | base64 -d; echo
-      2. Open: http://{{ ansible_host }}:30080/argocd
+      2. Open: http://shivi.local:30080/argocd
       3. Username: admin
       4. Password: (from step 1)
       

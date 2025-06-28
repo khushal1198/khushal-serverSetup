@@ -61,6 +61,19 @@
         - /home/{{ ansible_user }}/.kube
         - /home/{{ ansible_user }}/k3s.yaml
 
+    - name: Remove temporary files
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /tmp/grafana-ingress.yaml
+        - /tmp/prometheus-ingress.yaml
+        - /tmp/argocd-ingress.yaml
+        - /tmp/dashboard-ingress.yaml
+        - /tmp/pgadmin-ingress.yaml
+        - /tmp/pgadmin-deployment.yaml
+      ignore_errors: yes
+
     - name: Reset firewall to default
       shell: |
         ufw --force reset
@@ -77,5 +90,21 @@
           ================
           Server is now completely clean.
           
-          To reinstall everything:
-          ansible-playbook -i inventory/hosts playbooks/deploy-all.yml 
+          🧹 Removed:
+          • All Kubernetes resources and namespaces
+          • k3s cluster completely
+          • All Docker containers and images
+          • All Helm data and configurations
+          • All temporary deployment files
+          • Reset firewall to default settings
+          
+          🚀 To reinstall everything:
+          ansible-playbook -i inventory/hosts playbooks/deploy-all.yml
+          
+          ℹ️  For selective cleanup, use individual component cleanup playbooks:
+          • playbooks/postgres/cleanup.yml
+          • playbooks/monitoring/cleanup.yml
+          • playbooks/argocd/cleanup.yml
+          • playbooks/dashboard/cleanup.yml
+          • playbooks/vault/cleanup.yml
+          • playbooks/jenkins/cleanup.yml 

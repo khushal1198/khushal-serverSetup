@@ -1,0 +1,8 @@
+---
+- name: Install PostgreSQL and pgAdmin
+  hosts: servers
+  become: yes
+  environment:
+    KUBECONFIG: "/etc/rancher/k3s/k3s.yaml"
+  tasks:
+    - include_tasks: setup-tasks.yml 

@@ -1,0 +1,74 @@
+---
+- name: Cleanup PostgreSQL and pgAdmin
+  hosts: servers
+  become: yes
+  environment:
+    KUBECONFIG: "/etc/rancher/k3s/k3s.yaml"
+  tasks:
+    - name: Remove pgAdmin deployment
+      command: kubectl delete deployment pgadmin4 -n postgres
+      register: pgadmin_cleanup
+      changed_when: pgadmin_cleanup.rc == 0
+      ignore_errors: true
+
+    - name: Remove pgAdmin service
+      command: kubectl delete service pgadmin4 -n postgres
+      register: pgadmin_service_cleanup
+      changed_when: pgadmin_service_cleanup.rc == 0
+      ignore_errors: true
+
+    - name: Remove pgAdmin PVC
+      command: kubectl delete pvc pgadmin-pvc -n postgres
+      register: pgadmin_pvc_cleanup
+      changed_when: pgadmin_pvc_cleanup.rc == 0
+      ignore_errors: true
+
+    - name: Remove PostgreSQL Helm release
+      command: helm uninstall postgresql -n postgres
+      register: postgresql_cleanup
+      changed_when: postgresql_cleanup.rc == 0
+      ignore_errors: true
+
+    - name: Remove pgAdmin ingress
+      command: kubectl delete ingress pgadmin-ingress -n postgres
+      register: ingress_cleanup
+      changed_when: ingress_cleanup.rc == 0
+      ignore_errors: true
+
+    - name: Wait for pods to terminate
+      command: kubectl wait --for=delete pod --all -n postgres --timeout=120s
+      register: pods_cleanup
+      changed_when: pods_cleanup.rc == 0
+      ignore_errors: true
+
+    - name: Remove PostgreSQL namespace
+      command: kubectl delete namespace postgres
+      register: namespace_cleanup
+      changed_when: namespace_cleanup.rc == 0
+      ignore_errors: true
+
+    - name: Remove temporary files
+      file:
+        path: "{{ item }}"
+        state: absent
+      with_items:
+        - /tmp/pgadmin-ingress.yaml
+        - /tmp/pgadmin-deployment.yaml
+      ignore_errors: true
+
+    - name: Print cleanup summary
+      debug:
+        msg: |
+          ========================================
+          POSTGRESQL & PGADMIN CLEANUP COMPLETE
+          ========================================
+          
+          Removed components:
+          • PostgreSQL database
+          • pgAdmin web interface
+          • All associated services and ingress
+          • PostgreSQL namespace
+          
+          Note: Persistent volumes may still exist.
+          To remove them completely, run:
+          kubectl delete pv --all 
