@@ -147,6 +147,7 @@ ssh -i ~/.ssh/id_rsa_jenkins khushal@<HOST> "sudo ufw delete allow <port>/tcp"
 - **pgAdmin**: Web-based database administration tool
 - **Persistent Storage**: Data persistence across restarts
 - **Monitoring**: Built-in metrics for Prometheus
+- **Automated Backups**: CronJob-based backup system
 
 ### Access
 - **pgAdmin**: `http://<HOST>:32544` (admin@admin.com/admin123)
@@ -160,6 +161,25 @@ psql -h <HOST> -p 32543 -U postgres -d myapp
 
 # Connection string
 postgresql://postgres:admin123@<HOST>:32543/myapp
+```
+
+### Backup System
+The automated backup system provides:
+- **Schedule**: Every 6 hours (configurable)
+- **Storage**: 5GB dedicated backup storage
+- **Retention**: Keeps last 10 backups
+- **Auto-restore**: Restores from latest backup on startup
+- **Manual controls**: Trigger backups and restores on demand
+
+```bash
+# Trigger manual backup
+kubectl create job --from=cronjob/postgres-backup manual-backup-$(date +%s) -n postgres
+
+# Manual restore from latest backup
+kubectl apply -f /tmp/postgres-restore-job.yaml
+
+# Check backup files
+kubectl exec -n postgres postgresql-0 -- ls -la /backup/
 ```
 
 ### Multi-Device Access

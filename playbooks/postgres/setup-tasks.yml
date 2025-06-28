@@ -35,6 +35,45 @@
     postgres_nodeport: 32543
     postgres_storage_size: "8Gi"
 
+- name: Copy backup storage PVC to server
+  copy:
+    src: backup-pvc.yaml
+    dest: /tmp/postgres-backup-pvc.yaml
+  register: backup_pvc_copy
+
+- name: Apply backup storage PVC
+  command: kubectl apply -f /tmp/postgres-backup-pvc.yaml
+  register: backup_pvc_apply
+  changed_when: backup_pvc_apply.rc == 0
+
+- name: Copy backup scripts ConfigMap to server
+  copy:
+    src: backup-scripts.yaml
+    dest: /tmp/postgres-backup-scripts.yaml
+  register: backup_scripts_copy
+
+- name: Apply backup scripts ConfigMap
+  command: kubectl apply -f /tmp/postgres-backup-scripts.yaml
+  register: backup_scripts_apply
+  changed_when: backup_scripts_apply.rc == 0
+
+- name: Copy backup CronJob to server
+  copy:
+    src: backup-cronjob.yaml
+    dest: /tmp/postgres-backup-cronjob.yaml
+  register: backup_cronjob_copy
+
+- name: Apply backup CronJob
+  command: kubectl apply -f /tmp/postgres-backup-cronjob.yaml
+  register: backup_cronjob_apply
+  changed_when: backup_cronjob_apply.rc == 0
+
+- name: Copy restore job template to server
+  copy:
+    src: restore-job.yaml
+    dest: /tmp/postgres-restore-job.yaml
+  register: restore_job_copy
+
 - name: Create pgAdmin deployment
   copy:
     dest: /tmp/pgadmin-deployment.yaml
@@ -216,6 +255,26 @@
       - Just login to pgAdmin and click on the server
       
       ========================================
+      BACKUP SYSTEM
+      ========================================
+      
+      ✅ Automated backup system configured!
+      - Schedule: Every 6 hours (0 */6 * * *)
+      - Storage: 5GB dedicated backup PVC
+      - Retention: Last 10 backups kept
+      - Auto-restore: Restores from latest backup on startup
+      
+      Backup Commands:
+      # Trigger manual backup:
+      kubectl create job --from=cronjob/postgres-backup manual-backup-$(date +%s) -n postgres
+      
+      # Manual restore:
+      kubectl apply -f /tmp/postgres-restore-job.yaml -n postgres
+      
+      # Check backup files:
+      kubectl exec -n postgres deployment/postgresql-0 -- ls -la /backup/
+      
+      ========================================
       CONNECTION EXAMPLES
       ========================================
       
@@ -241,7 +300,7 @@
       1. Access pgAdmin on port {{ pgadmin_nodeport }} for database management
       2. PostgreSQL server is already configured - just click to connect!
       3. Create additional databases and users as needed
-      4. Configure backup strategies
+      4. Backups run automatically every 6 hours
       5. Set up monitoring (metrics are enabled)
       6. For production: change default passwords!
   vars:

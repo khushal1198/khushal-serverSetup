@@ -29,6 +29,30 @@
       changed_when: pgadmin_configmap_cleanup.rc == 0
       ignore_errors: true
 
+    - name: Remove backup CronJob
+      command: kubectl delete cronjob postgres-backup -n postgres
+      register: backup_cronjob_cleanup
+      changed_when: backup_cronjob_cleanup.rc == 0
+      ignore_errors: true
+
+    - name: Remove backup scripts ConfigMap
+      command: kubectl delete configmap postgres-backup-scripts -n postgres
+      register: backup_scripts_cleanup
+      changed_when: backup_scripts_cleanup.rc == 0
+      ignore_errors: true
+
+    - name: Remove backup storage PVC
+      command: kubectl delete pvc postgres-backup-pvc -n postgres
+      register: backup_pvc_cleanup
+      changed_when: backup_pvc_cleanup.rc == 0
+      ignore_errors: true
+
+    - name: Remove any running backup/restore jobs
+      command: kubectl delete jobs -l job-name=postgres-backup -n postgres
+      register: backup_jobs_cleanup
+      changed_when: backup_jobs_cleanup.rc == 0
+      ignore_errors: true
+
     - name: Remove PostgreSQL Helm release
       command: helm uninstall postgresql -n postgres
       register: postgresql_cleanup
@@ -53,6 +77,10 @@
         state: absent
       with_items:
         - /tmp/pgadmin-deployment.yaml
+        - /tmp/postgres-backup-pvc.yaml
+        - /tmp/postgres-backup-scripts.yaml
+        - /tmp/postgres-backup-cronjob.yaml
+        - /tmp/postgres-restore-job.yaml
       ignore_errors: true
 
     - name: Print cleanup summary
@@ -66,6 +94,7 @@
           • PostgreSQL database
           • pgAdmin web interface
           • pgAdmin server configuration
+          • Backup system (CronJob, storage, scripts)
           • All associated services
           • PostgreSQL namespace
           
