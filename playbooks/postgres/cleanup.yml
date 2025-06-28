@@ -23,16 +23,16 @@
       changed_when: pgadmin_pvc_cleanup.rc == 0
       ignore_errors: true
 
+    - name: Remove pgAdmin servers ConfigMap
+      command: kubectl delete configmap pgadmin-servers -n postgres
+      register: pgadmin_configmap_cleanup
+      changed_when: pgadmin_configmap_cleanup.rc == 0
+      ignore_errors: true
+
     - name: Remove PostgreSQL Helm release
       command: helm uninstall postgresql -n postgres
       register: postgresql_cleanup
       changed_when: postgresql_cleanup.rc == 0
-      ignore_errors: true
-
-    - name: Remove pgAdmin ingress
-      command: kubectl delete ingress pgadmin-ingress -n postgres
-      register: ingress_cleanup
-      changed_when: ingress_cleanup.rc == 0
       ignore_errors: true
 
     - name: Wait for pods to terminate
@@ -52,7 +52,6 @@
         path: "{{ item }}"
         state: absent
       with_items:
-        - /tmp/pgadmin-ingress.yaml
         - /tmp/pgadmin-deployment.yaml
       ignore_errors: true
 
@@ -66,7 +65,8 @@
           Removed components:
           • PostgreSQL database
           • pgAdmin web interface
-          • All associated services and ingress
+          • pgAdmin server configuration
+          • All associated services
           • PostgreSQL namespace
           
           Note: Persistent volumes may still exist.

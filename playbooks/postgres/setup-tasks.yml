@@ -72,13 +72,43 @@
                 value: "\"Authorised users only!\""
               - name: PGADMIN_CONFIG_CONSOLE_LOG_LEVEL
                 value: "10"
+              - name: PGADMIN_SERVER_JSON_FILE
+                value: "/pgadmin4/servers.json"
               volumeMounts:
               - name: pgadmin-storage
                 mountPath: /var/lib/pgadmin
+              - name: servers-config
+                mountPath: /pgadmin4/servers.json
+                subPath: servers.json
             volumes:
             - name: pgadmin-storage
               persistentVolumeClaim:
                 claimName: pgadmin-pvc
+            - name: servers-config
+              configMap:
+                name: pgadmin-servers
+      ---
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: pgadmin-servers
+        namespace: postgres
+      data:
+        servers.json: |
+          {
+            "Servers": {
+              "1": {
+                "Name": "PostgreSQL Server",
+                "Group": "Servers",
+                "Host": "postgresql",
+                "Port": 5432,
+                "MaintenanceDB": "postgres",
+                "Username": "postgres",
+                "SSLMode": "prefer",
+                "Comment": "Auto-configured PostgreSQL server"
+              }
+            }
+          }
       ---
       apiVersion: v1
       kind: PersistentVolumeClaim
@@ -118,40 +148,6 @@
   register: pgadmin_deploy_apply
   changed_when: pgadmin_deploy_apply.rc == 0
 
-- name: Create pgAdmin ingress resource
-  copy:
-    dest: /tmp/pgadmin-ingress.yaml
-    content: |
-      apiVersion: networking.k8s.io/v1
-      kind: Ingress
-      metadata:
-        name: pgadmin-ingress
-        namespace: postgres
-        annotations:
-          nginx.ingress.kubernetes.io/rewrite-target: /pgadmin/$2
-          nginx.ingress.kubernetes.io/use-regex: "true"
-          nginx.ingress.kubernetes.io/proxy-buffering: "off"
-          nginx.ingress.kubernetes.io/proxy-set-headers: |
-            X-Script-Name: /pgadmin
-      spec:
-        ingressClassName: nginx
-        rules:
-        - host: shivi.local
-          http:
-            paths:
-            - path: /pgadmin(/|$)(.*)
-              pathType: ImplementationSpecific
-              backend:
-                service:
-                  name: pgadmin4
-                  port:
-                    number: 80
-
-- name: Apply pgAdmin ingress resource
-  command: kubectl apply -f /tmp/pgadmin-ingress.yaml
-  register: pgadmin_ingress_apply
-  changed_when: pgadmin_ingress_apply.rc == 0
-
 - name: Wait for PostgreSQL pod to be ready
   command: kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=postgresql -n postgres --timeout=300s
   register: postgresql_ready
@@ -185,8 +181,8 @@
       ========================================
       
       pgAdmin Web Interface:
-      - Via Ingress: http://shivi.local:30080/pgadmin
-      - Direct NodePort: http://{{ public_ip.stdout | default(ansible_host) }}:{{ pgadmin_nodeport }}
+      - Primary Access: http://{{ public_ip.stdout | default(ansible_host) }}:{{ pgadmin_nodeport }}
+      - From any device: http://104.241.54.17:{{ pgadmin_nodeport }}
       
       PostgreSQL Database:
       - Host: {{ public_ip.stdout | default(ansible_host) }}
@@ -196,13 +192,6 @@
       Internal Kubernetes Access:
       - Service: postgresql.postgres.svc.cluster.local
       - Port: 5432
-      
-      ========================================
-      HOSTNAME SETUP
-      ========================================
-      
-      Add to your local /etc/hosts file:
-      {{ public_ip.stdout | default(ansible_host) }} shivi.local
       
       ========================================
       CREDENTIALS
@@ -218,6 +207,15 @@
       - Database: {{ postgres_database }}
       
       ========================================
+      AUTO-CONFIGURATION
+      ========================================
+      
+      ✅ PostgreSQL server is automatically registered in pgAdmin!
+      - Server Name: "PostgreSQL Server"
+      - Connection: Pre-configured to connect to PostgreSQL
+      - Just login to pgAdmin and click on the server
+      
+      ========================================
       CONNECTION EXAMPLES
       ========================================
       
@@ -228,19 +226,24 @@
       postgresql://postgres:{{ postgres_password }}@{{ public_ip.stdout | default(ansible_host) }}:{{ postgres_nodeport }}/{{ postgres_database }}
       
       ========================================
+      MULTI-DEVICE ACCESS
+      ========================================
+      
+      Access from any device on any network:
+      • pgAdmin: http://104.241.54.17:{{ pgadmin_nodeport }}
+      • No /etc/hosts setup required!
+      • Works on phones, tablets, other computers
+      
+      ========================================
       NEXT STEPS
       ========================================
       
-      1. Access pgAdmin via ingress for database management
-      2. Create additional databases and users as needed
-      3. Configure backup strategies
-      4. Set up monitoring (metrics are enabled)
-      5. For production: change default passwords!
-      6. Add PostgreSQL server in pgAdmin manually:
-         - Host: postgresql (or postgresql.postgres.svc.cluster.local)
-         - Port: 5432
-         - Username: postgres
-         - Password: {{ postgres_password }}
+      1. Access pgAdmin on port {{ pgadmin_nodeport }} for database management
+      2. PostgreSQL server is already configured - just click to connect!
+      3. Create additional databases and users as needed
+      4. Configure backup strategies
+      5. Set up monitoring (metrics are enabled)
+      6. For production: change default passwords!
   vars:
     postgres_password: "admin123"
     postgres_database: "myapp"

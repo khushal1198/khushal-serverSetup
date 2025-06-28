@@ -52,14 +52,13 @@ After deployment, access your services at:
 - **Prometheus**: `http://shivi.local:30080/prometheus`
 - **Kubernetes Dashboard**: `http://shivi.local:30080/dashboard`
 - **Jenkins**: `http://<HOST>:30080/jenkins/`
-- **pgAdmin**: `http://shivi.local:30080/pgadmin`
 
 ### Direct Access (NodePort)
 - **Kubernetes Dashboard**: `https://<HOST>:31000` *(Note: Uses HTTPS with self-signed cert)*
 - **Jenkins**: `http://<HOST>:30000`
 - **Vault**: `http://<HOST>:30201`
 - **PostgreSQL**: `<HOST>:32543` *(Database connection)*
-- **pgAdmin**: `http://<HOST>:32544`
+- **pgAdmin**: `http://<HOST>:32544` *(Multi-device friendly)*
 
 ### Dashboard Access Note
 The Kubernetes Dashboard is served directly via NodePort (port 31000) because it doesn't support subpath routing through ingress controllers. You'll need to accept the self-signed certificate warning in your browser.
@@ -70,6 +69,8 @@ The Kubernetes Dashboard is served directly via NodePort (port 31000) because it
 <SERVER_IP> shivi.local
 ```
 Replace `<SERVER_IP>` with your actual server IP address.
+
+**Note**: pgAdmin uses NodePort access for easy multi-device access without hostname setup.
 
 ---
 
@@ -148,7 +149,7 @@ ssh -i ~/.ssh/id_rsa_jenkins khushal@<HOST> "sudo ufw delete allow <port>/tcp"
 - **Monitoring**: Built-in metrics for Prometheus
 
 ### Access
-- **pgAdmin**: `http://shivi.local:30080/pgadmin` (admin@admin.com/admin123)
+- **pgAdmin**: `http://<HOST>:32544` (admin@admin.com/admin123)
 - **PostgreSQL**: `<HOST>:32543` (postgres/admin123)
 - **Database**: `myapp`
 
@@ -160,6 +161,12 @@ psql -h <HOST> -p 32543 -U postgres -d myapp
 # Connection string
 postgresql://postgres:admin123@<HOST>:32543/myapp
 ```
+
+### Multi-Device Access
+pgAdmin is accessible from any device without hostname configuration:
+- **From anywhere**: `http://104.241.54.17:32544`
+- **No /etc/hosts setup required**
+- **Works on phones, tablets, other computers**
 
 ### Setup
 ```bash

@@ -75,13 +75,12 @@
           • Kubernetes Dashboard: http://shivi.local:30080/dashboard
           • Jenkins: http://{{ ansible_host }}:30080/jenkins
           • Vault: http://{{ ansible_host }}:30080/vault
-          • pgAdmin: http://shivi.local:30080/pgadmin
           
-          🔐 Direct Access (if needed):
+          🔐 Direct Access (NodePort):
           • Jenkins: http://{{ ansible_host }}:30000
           • Vault: http://{{ ansible_host }}:30201
           • PostgreSQL: {{ ansible_host }}:32543
-          • pgAdmin: http://{{ ansible_host }}:32544
+          • pgAdmin: http://{{ ansible_host }}:32544 (multi-device friendly)
           
           🏠 Hostname Setup:
           Add to your local /etc/hosts file:
